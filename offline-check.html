@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Offline Check</title>
+<style>
+    :root { --bg: #f4f7fb; --card: #ffffff; --text: #10233f; --muted: #5b6b80; --ok: #13703a; --bad: #b42318; --line: #d8e0ea; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0f1724; --card: #172235; --text: #e8eef7; --muted: #9fb0c6; --ok: #5fd08a; --bad: #ff8a80; --line: #2a3a54; } }
+    :root[data-theme="dark"] { --bg: #0f1724; --card: #172235; --text: #e8eef7; --muted: #9fb0c6; --ok: #5fd08a; --bad: #ff8a80; --line: #2a3a54; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 -apple-system, system-ui, sans-serif; }
+    main { max-width: 860px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 24px; margin: 8px 0 4px; }
+    p.note { color: var(--muted); margin: 0 0 14px; }
+    section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+    h2 { font-size: 17px; margin: 0 0 8px; }
+    .row { padding: 4px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+    .row:first-of-type { border-top: 0; }
+    .ok { color: var(--ok); font-weight: 700; }
+    .bad { color: var(--bad); font-weight: 700; }
+    .buttons { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+    button { font: inherit; font-weight: 700; padding: 12px 18px; border-radius: 10px; border: 0; background: #0b3a6e; color: #fff; min-height: 48px; }
+    button.secondary { background: #ffd23f; color: #10233f; }
+    textarea { width: 100%; box-sizing: border-box; height: 160px; font: 12px/1.4 ui-monospace, monospace; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 8px; }
+</style>
+</head>
+<body>
+<main>
+    <h1>Court94 Offline Check</h1>
+    <p class="note">Temporary test page for the Netlify preview only. It reads Court94's offline helper and saved copy and never touches teams or games. "Try Saving the Copy Again" adds step 6 and can take up to a minute.</p>
+    <div class="buttons">
+        <button id="again" type="button">Check Again</button>
+        <button id="retry" class="secondary" type="button">Try Saving the Copy Again</button>
+        <button id="copy" class="secondary" type="button">Copy Report</button>
+    </div>
+    <div id="report"></div>
+    <textarea id="text" readonly aria-label="Report text"></textarea>
+</main>
+<script>
+// Each step adds one line; ✅ = working, ❌ = the step that fails.
+const FILES = ["index.html", "style.css", "script.js", "backup.js", "storage.js", "offline.js", "images/Court94 Banner Logo.png", "images/Court94-logo.png"];
+const report = document.getElementById("report");
+let lines = [];
+let section;
+
+function startSection(title) {
+    section = document.createElement("section");
+    const h = document.createElement("h2"); h.textContent = title; section.append(h);
+    report.append(section); lines.push("", "## " + title);
+}
+function line(ok, text) {
+    const div = document.createElement("div"); div.className = "row";
+    if (ok !== null) { const s = document.createElement("span"); s.className = ok ? "ok" : "bad"; s.textContent = ok ? "✅ " : "❌ "; div.append(s); }
+    div.append(document.createTextNode(text)); section.append(div);
+    lines.push((ok === null ? "   " : ok ? "OK " : "XX ") + text);
+}
+async function sha256(buffer) {
+    const digest = await crypto.subtle.digest("SHA-256", buffer);
+    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+const url = (p) => new URL(p, location.href).href;
+async function step(label, fn) { try { return await fn(); } catch (e) { line(false, `${label}: ${e && e.name ? e.name + ": " : ""}${e && e.message ? e.message : e}`); return undefined; } }
+
+// index-original.txt is the uploaded index.html under a name hosts leave
+// alone (they only add things to web pages), so the two can be compared.
+async function comparePage(servedBuffer, fingerprint) {
+    startSection("4b. What is different in index.html");
+    const r = await step("Downloading index-original.txt", () => fetch(url("index-original.txt"), { cache: "reload" }));
+    if (!r) return;
+    const originalBuffer = await r.arrayBuffer();
+    if (!r.ok || (await sha256(originalBuffer)) !== fingerprint) {
+        line(false, `index-original.txt: answer ${r.status}, ${originalBuffer.byteLength} bytes; it isn't the uploaded page either, so the folder on the website isn't the one that was checked`);
+        return;
+    }
+    const extra = servedBuffer.byteLength - originalBuffer.byteLength;
+    line(true, `index-original.txt is the uploaded page exactly (${originalBuffer.byteLength} bytes). The website's index.html differs by ${extra >= 0 ? "+" : ""}${extra} bytes.`);
+    const decode = (b) => new TextDecoder().decode(b).split("\n");
+    const original = decode(originalBuffer), served = decode(servedBuffer);
+    const count = new Map();
+    for (const l of original) count.set(l, (count.get(l) || 0) + 1);
+    const added = [];
+    served.forEach((l, i) => { if (count.get(l) > 0) count.set(l, count.get(l) - 1); else added.push([i + 1, l]); });
+    const removed = [];
+    for (const [l, n] of count) for (let k = 0; k < n; k++) removed.push(l);
+    line(null, `Lines added by the website: ${added.length}; original lines missing or changed: ${removed.length}`);
+    for (const [n, l] of added.slice(0, 12)) line(false, `added at line ${n}: ${l.trim().slice(0, 400) || "(blank line)"}`);
+    for (const l of removed.slice(0, 12)) line(false, `original line no longer there: ${l.trim().slice(0, 400) || "(blank line)"}`);
+}
+
+// Starts the helper from this page and reports each step, so a failing step
+// shows here even if it fails quietly in the app.
+async function startHelper() {
+    startSection("6. Starting the offline helper now");
+    let reg;
+    try {
+        reg = await navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
+        line(true, "Registration accepted for " + reg.scope);
+    } catch (e) {
+        line(false, `Registration refused: ${e && e.name ? e.name + ": " : ""}${e && e.message ? e.message : e}`);
+        return;
+    }
+    if (!reg.installing && !reg.waiting) await step("Checking for a newer helper", () => reg.update());
+    const worker = reg.installing || reg.waiting || reg.active;
+    if (!worker) { line(false, "No helper to follow"); return; }
+    line(null, "Helper state: " + worker.state);
+    if (worker.state !== "activated" && worker.state !== "redundant") {
+        await new Promise((resolve) => {
+            const timer = setTimeout(() => { line(false, "Still " + worker.state + " after 90 seconds"); resolve(); }, 90000);
+            worker.addEventListener("statechange", () => {
+                line(worker.state !== "redundant", "Helper state: " + worker.state + (worker.state === "redundant" ? " (setup failed; the browser discarded it)" : ""));
+                if (worker.state === "activated" || worker.state === "redundant") { clearTimeout(timer); resolve(); }
+            });
+        });
+    }
+    const after = await step("Reading the helper", () => navigator.serviceWorker.getRegistration());
+    line(Boolean(after && after.active), "Registered afterwards: " + (after ? "yes, running: " + Boolean(after.active) : "no"));
+    const attempt = await step("Reading last-attempt", async () => { const r = await caches.match(url("__court94/last-attempt"), { cacheName: "court94-meta" }); return r ? r.text() : null; });
+    if (attempt !== undefined) line(attempt ? !JSON.parse(attempt).problem : false, "Helper's own report (last-attempt): " + (attempt || "(none)"));
+    const keys = await step("Listing saved copies", () => caches.keys());
+    if (keys) line(keys.some((k) => k.startsWith("court94-app-")), "Saved caches now: " + (keys.length ? keys.join(", ") : "none"));
+}
+
+async function run() {
+    report.replaceChildren(); lines = ["Court94 Offline Check " + new Date().toISOString()];
+
+    startSection("1. This browser");
+    line(null, navigator.userAgent);
+    line(null, "Address: " + location.href + (navigator.standalone ? " (Home Screen app)" : navigator.standalone === false ? " (Safari)" : ""));
+    line(window.isSecureContext, "Secure connection (https): " + window.isSecureContext);
+    line("serviceWorker" in navigator, "Offline helpers (service workers) supported: " + ("serviceWorker" in navigator));
+    line(typeof caches !== "undefined", "Saved copies (Cache Storage) supported: " + (typeof caches !== "undefined"));
+    line(Boolean(window.crypto && crypto.subtle), "Fingerprints (crypto.subtle) supported: " + Boolean(window.crypto && crypto.subtle));
+
+    startSection("2. Offline helper");
+    const reg = await step("Reading the helper", () => navigator.serviceWorker.getRegistration());
+    if (reg) {
+        line(true, "Registered for " + reg.scope);
+        line(Boolean(reg.active), "Running (active): " + (reg.active ? reg.active.state + " " + reg.active.scriptURL : "none"));
+        line(null, "Installing: " + (reg.installing ? reg.installing.state : "none") + " · Waiting: " + (reg.waiting ? reg.waiting.state : "none"));
+    } else if (reg === undefined || reg === null) {
+        line(false, "No offline helper registered for this address");
+    }
+    line(null, "This page is controlled by the helper: " + Boolean(navigator.serviceWorker && navigator.serviceWorker.controller));
+
+    startSection("3. Saved copies on this iPad");
+    const keys = await step("Listing saved copies", () => caches.keys());
+    if (keys) line(keys.length > 0, "Saved caches: " + (keys.length ? keys.join(", ") : "none"));
+    for (const name of ["current", "latest", "last-attempt"]) {
+        const value = await step("Reading " + name, async () => { const r = await caches.match(url("__court94/" + name), { cacheName: "court94-meta" }); return r ? r.text() : null; });
+        if (value !== undefined) line(name === "last-attempt" ? (value ? !JSON.parse(value).problem : null) : Boolean(value), `${name}: ${value || "(none)"}`);
+    }
+    for (const name of (keys || []).filter((k) => k.startsWith("court94-app-"))) {
+        await step("Reading " + name, async () => {
+            const cache = await caches.open(name);
+            const m = await cache.match(url("__court94/manifest"));
+            if (!m) { line(false, `${name}: no manifest (incomplete copy)`); return; }
+            const manifest = await m.json();
+            const missing = [], wrong = [];
+            for (const path of Object.keys(manifest.files)) {
+                const r = await cache.match(url(path));
+                if (!r) missing.push(path); else if ((await sha256(await r.arrayBuffer())) !== manifest.files[path]) wrong.push(path);
+            }
+            line(!missing.length && !wrong.length, `${name}: version ${manifest.version}, saved ${manifest.savedAt}` + (missing.length ? `, missing ${missing.join(", ")}` : "") + (wrong.length ? `, changed ${wrong.join(", ")}` : ""));
+        });
+    }
+
+    startSection("4. Files on the website (downloaded now, like the helper does)");
+    const swResponse = await step("Downloading sw.js", () => fetch(url("sw.js"), { cache: "reload" }));
+    let expected = {};
+    if (swResponse) {
+        const swText = await swResponse.text();
+        line(swResponse.ok && swText.includes("APP_FILES"), `sw.js: answer ${swResponse.status}, ${swText.length} characters, ${swResponse.headers.get("Content-Type")}` + (swResponse.redirected ? ", redirected to " + swResponse.url : ""));
+        const version = (swText.match(/APP_VERSION = "([^"]+)"/) || [])[1];
+        line(null, "Version on the website: " + (version || "unknown"));
+        for (const m of swText.matchAll(/^\s+"([^"]+)": "([0-9a-f]{64})"/gm)) expected[m[1]] = m[2];
+        if (!Object.keys(expected).length) line(false, "sw.js doesn't list the app files (it isn't Court94's helper; maybe a login page)");
+    }
+    let pageChanged = null;
+    for (const path of FILES) {
+        await step(path, async () => {
+            const r = await fetch(url(path), { cache: "reload" });
+            const body = await r.arrayBuffer();
+            const hash = await sha256(body);
+            const match = expected[path] ? hash === expected[path] : null;
+            line(r.ok && match !== false, `${path}: answer ${r.status}, ${body.byteLength} bytes, ${r.headers.get("Content-Type")}` + (r.redirected ? ", redirected to " + r.url : "") + (match === null ? ", no fingerprint to compare" : match ? ", fingerprint matches" : `, fingerprint DIFFERENT (got ${hash.slice(0, 12)}, expected ${expected[path].slice(0, 12)})`));
+            if (path === "index.html") {
+                line(null, "index.html headers: " + [...r.headers].map(([k, v]) => `${k}: ${v.slice(0, 120)}`).join(" | "));
+                if (match === false) pageChanged = body;
+            }
+        });
+    }
+    if (pageChanged) await comparePage(pageChanged, expected["index.html"]);
+
+    startSection("5. Saving a test copy (the helper's steps, run on this page)");
+    await step("Test copy", async () => {
+        const name = "court94-diagnostic-test";
+        await caches.delete(name);
+        const cache = await caches.open(name);
+        const r = await fetch(url("index.html"), { cache: "reload" });
+        const body = await r.arrayBuffer();
+        await cache.put(url("index.html"), new Response(body, { headers: { "Content-Type": r.headers.get("Content-Type") || "text/html" } }));
+        const back = await cache.match(url("index.html"));
+        const same = back && (await sha256(await back.arrayBuffer())) === (await sha256(body));
+        line(same, "Save and read back a file: " + (same ? "works" : "FAILED"));
+        const viaName = await caches.match(url("index.html"), { cacheName: name });
+        line(Boolean(viaName), "Find a file by copy name: " + (viaName ? "works" : "FAILED"));
+        await caches.delete(name);
+    });
+
+}
+function showText() { document.getElementById("text").value = lines.join("\n"); }
+
+let busy = false;
+async function once(fn) { if (busy) return; busy = true; try { await fn(); } finally { busy = false; showText(); } }
+document.getElementById("again").addEventListener("click", () => once(run));
+document.getElementById("retry").addEventListener("click", () => once(async () => {
+    await run();
+    await startHelper();
+}));
+document.getElementById("copy").addEventListener("click", async () => {
+    const text = document.getElementById("text");
+    try { await navigator.clipboard.writeText(text.value); alert("Report copied. Paste it into a message to Claude."); }
+    catch (e) { text.focus(); text.select(); alert("Select the report text below and copy it."); }
+});
+once(run);
+</script>
+</body>
+</html>

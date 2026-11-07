@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Court94</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <header class="appHeader">
+       
+       <div class="appBrand">
+
+    <img
+        src="images/Court94 Banner Logo.png"
+        alt="Court94"
+        class="appLogo"
+    >
+
+    <div
+    id="appTeamBadge"
+    class="appTeamBadge"
+>
+    YOUR TEAM
+</div>
+
+</div>
+    </header>
+
+    <div class="topNavButtons">
+
+     <button
+            id="backButton"
+            class="backButton hidden"
+            type="button"
+        >
+            ← Back
+        </button>
+
+        <button
+    id="homeButton"
+    class="homeButton hidden"
+    type="button"
+    aria-label="Home"
+    title="Home"
+>
+    🏠
+</button>
+
+    <!-- Shown only while the game recovery copy can't be saved (script.js). -->
+    <button
+        id="recoveryWarning"
+        class="recoveryWarning"
+        type="button"
+        hidden
+    >
+        <span class="recoveryWarningTitle">⚠ Game recovery not saved</span>
+        <span class="recoveryWarningHint">Don't close Court94 · Tap for help</span>
+    </button>
+
+</div>
+
+    <main class="appContainer">
+
+        <!-- HOME SCREEN -->
+<section id="homeScreen" class="screen activeScreen">
+
+    <div class="homeMenu">
+
+        <button class="homeMenuCard" id="teamsBtn" type="button">
+            <span class="homeMenuIcon teamsPeopleIcon">
+    <svg viewBox="0 0 100 75" aria-hidden="true">
+        <!-- Top row: 2 people -->
+        <circle cx="36" cy="17" r="9"></circle>
+        <path d="M20 38c1-10 7-15 16-15s15 5 16 15v4H20z"></path>
+
+        <circle cx="64" cy="17" r="9"></circle>
+        <path d="M48 38c1-10 7-15 16-15s15 5 16 15v4H48z"></path>
+
+        <!-- Bottom row: 3 people -->
+        <circle cx="22" cy="47" r="9"></circle>
+        <path d="M6 70c1-11 7-17 16-17s15 6 16 17v3H6z"></path>
+
+        <circle cx="50" cy="47" r="9"></circle>
+        <path d="M34 70c1-11 7-17 16-17s15 6 16 17v3H34z"></path>
+
+        <circle cx="78" cy="47" r="9"></circle>
+        <path d="M62 70c1-11 7-17 16-17s15 6 16 17v3H62z"></path>
+    </svg>
+</span>
+            <span class="homeMenuText">
+                <strong>Teams</strong>
+                <small>Manage rosters and team setup</small>
+            </span>
+            <span class="homeMenuArrow">›</span>
+        </button>
+
+        <button class="homeMenuCard" id="gamesBtn" type="button">
+            <span class="homeMenuIcon">🏀</span>
+            <span class="homeMenuText">
+                <strong>Games</strong>
+                <small>Start a game or view past games</small>
+            </span>
+            <span class="homeMenuArrow">›</span>
+        </button>
+
+        <button class="homeMenuCard" id="reportsBtn" type="button">
+            <span class="homeMenuIcon reportsChartIcon">
+    <svg viewBox="0 0 80 70" aria-hidden="true">
+        <rect x="8" y="40" width="14" height="24" rx="3"></rect>
+        <rect x="33" y="25" width="14" height="39" rx="3"></rect>
+        <rect x="58" y="8" width="14" height="56" rx="3"></rect>
+        <rect x="5" y="64" width="70" height="5" rx="2"></rect>
+    </svg>
+</span>
+            <span class="homeMenuText">
+                <strong>Reports</strong>
+                <small>Review your team's performance</small>
+            </span>
+            <span class="homeMenuArrow">›</span>
+        </button>
+
+        <button class="homeMenuCard" id="settingsBtn" type="button">
+            <span class="homeMenuIcon">⚙</span>
+            <span class="homeMenuText">
+                <strong>Settings</strong>
+                <small>Manage your Court94 preferences</small>
+            </span>
+            <span class="homeMenuArrow">›</span>
+        </button>
+
+    </div>
+
+    <!-- PUBLIC BETA NOTICE (display only) -->
+    <aside class="betaNotice" aria-label="Public Beta">
+        <span class="betaBadge">Public Beta</span>
+
+        <div class="betaNoticeText">
+            <p>
+                <strong>Court94 is currently free during beta testing.</strong>
+            </p>
+
+            <p>
+                At official launch, coaches will be able to track up to 3 games
+                for free. Unlimited game tracking will be available through the
+                paid Team Edition.
+            </p>
+
+            <p class="betaNoticeFine">
+                Pricing and launch details will be announced in advance.
+            </p>
+        </div>
+    </aside>
+
+</section>
+
+        <!-- TEAMS SCREEN -->
+        <section id="teamsScreen" class="screen">
+
+            <div class="sectionHeading">
+                <div>
+                    <h2>Teams</h2>
+                    <p>Create and manage your Court94 teams.</p>
+                </div>
+
+                <button
+                    id="addTeamButton"
+                    class="primaryButton"
+                    type="button"
+                >
+                    + Add Team
+                </button>
+            </div>
+
+            <div id="teamsList" class="teamsList">
+                <div class="emptyState">
+                    <h3>No teams yet</h3>
+                    <p>
+                        Add your first team to begin building
+                        a roster and choosing statistics.
+                    </p>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- TEAM SETUP SCREEN -->
+        <section id="teamSetupScreen" class="screen">
+
+            <div class="sectionHeading">
+                <div>
+                    <h2 id="teamSetupTitle">Create Team</h2>
+                    <p>
+                        Enter the team information, roster,
+                        and statistics you want to track.
+                    </p>
+                </div>
+            </div>
+
+            <form id="teamForm" class="setupForm">
+
+                <section class="formCard">
+
+                    <h3>Team Information</h3>
+
+                    <label class="formField">
+                        School or Program
+                        <input
+                            id="schoolNameInput"
+                            type="text"
+                            placeholder="Example: ABC High School"
+                        >
+                    </label>
+
+                    <label class="formField">
+                        Team Name
+                        <input
+                            id="teamNameInput"
+                            type="text"
+                            placeholder="Example: Varsity Girls"
+                            required
+                        >
+                    </label>
+
+                    <label class="formField">
+                        Season
+                        <input
+                            id="seasonInput"
+                            type="text"
+                            placeholder="Example: 2026–27"
+                        >
+                    </label>
+
+                </section>
+
+                <section class="formCard">
+
+                    <div class="cardHeading">
+                        <h3>Roster</h3>
+
+                        <button
+                            id="addPlayerButton"
+                            class="secondaryButton"
+                            type="button"
+                        >
+                            + Add Player
+                        </button>
+                    </div>
+
+                   <div class="rosterHeader">
+    <span>#</span>
+    <span>Player Name</span>
+    <span>Starter</span>
+    <span></span>
+</div>
+                   
+                    <div id="rosterEditor" class="rosterEditor"></div>
+
+                </section>
+
+                <section class="formCard">
+
+                    <h3>Team Statistics</h3>
+
+                    <p class="formNote">
+    Choose the team statistics you want to track. You can change these before every game.
+</p>
+
+                    <div id="teamStatChoices" class="statChoiceGrid">
+                    </div>
+
+                </section>
+
+                <section class="formCard">
+
+                    <h3>Player Statistics</h3>
+
+                    <p class="formNote">
+    Choose the player statistics you want to track. You can change these before every game.
+</p>
+
+                    <div id="playerStatChoices" class="statChoiceGrid">
+                    </div>
+
+                    <p class="formNote">
+                        Player plus/minus will be added later because
+                        it requires live lineup and substitution tracking.
+                    </p>
+
+                </section>
+
+                <div class="formActions">
+
+                    <button
+                        id="cancelTeamButton"
+                        class="cancelButton"
+                        type="button"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        class="saveButton"
+                        type="submit"
+                    >
+                        Save Team
+                    </button>
+
+                </div>
+
+            </form>
+
+        </section>
+
+        <!-- NEW GAME SCREEN -->
+        <section id="newGameScreen" class="screen">
+
+            <div class="sectionHeading">
+                <div>
+                    <h2>New Game</h2>
+                    <p>
+                        Enter the game information before continuing.
+                    </p>
+                </div>
+            </div>
+
+            <form id="newGameForm" class="setupForm">
+
+                <section class="formCard">
+
+                    <h3>Game Information</h3>
+
+                    <label class="formField">
+                        Opponent
+                        <input
+                            id="opponentInput"
+                            type="text"
+                            placeholder="Example: Rice Memorial"
+                            required
+                        >
+                    </label>
+
+                    <label class="formField">
+                        Game Date
+                        <input
+                            id="gameDateInput"
+                            type="date"
+                            required
+                        >
+                    </label>
+
+                </section>
+
+                <section class="formCard">
+
+                    <h3>Game Type</h3>
+
+                    <div class="optionGrid">
+
+                        <label class="optionCard">
+                            <input
+                                type="radio"
+                                name="gameType"
+                                value="Regular Season"
+                                checked
+                            >
+                            <span>Regular Season</span>
+                        </label>
+
+                        <label class="optionCard">
+                            <input
+                                type="radio"
+                                name="gameType"
+                                value="Tournament"
+                            >
+                            <span>Tournament</span>
+                        </label>
+
+                        <label class="optionCard">
+                            <input
+                                type="radio"
+                                name="gameType"
+                                value="Playoff"
+                            >
+                            <span>Playoff</span>
+                        </label>
+
+                        <label class="optionCard">
+                            <input
+                                type="radio"
+                                name="gameType"
+                                value="Scrimmage"
+                            >
+                            <span>Scrimmage</span>
+                        </label>
+
+                        <label class="optionCard">
+                            <input
+                                type="radio"
+                                name="gameType"
+                                value="Practice"
+                            >
+                            <span>Practice</span>
+                        </label>
+
+                    </div>
+
+                </section>
+
+                <section class="formCard">
+
+    <h3>Game Format</h3>
+
+    <div class="optionGrid">
+
+        <label class="optionCard">
+            <input
+                type="radio"
+                name="gameFormat"
+                value="Quarters"
+                checked
+            >
+            <span>Quarters</span>
+        </label>
+
+        <label class="optionCard">
+            <input
+                type="radio"
+                name="gameFormat"
+                value="Halves"
+            >
+            <span>Halves</span>
+        </label>
+
+    </div>
+
+</section>
+                <section class="formCard">
+
+                    <h3>Location</h3>
+
+                    <div class="optionGrid">
+
+                        <label class="optionCard">
+                            <input
+                                type="radio"
+                                name="gameLocation"
+                                value="Home"
+                                checked
+                            >
+                            <span>Home</span>
+                        </label>
+
+                        <label class="optionCard">
+                            <input
+                                type="radio"
+                                name="gameLocation"
+                                value="Away"
+                            >
+                            <span>Away</span>
+                        </label>
+
+                        <label class="optionCard">
+                            <input
+                                type="radio"
+                                name="gameLocation"
+                                value="Neutral"
+                            >
+                            <span>Neutral</span>
+                        </label>
+
+                    </div>
+
+                </section>
+
+                <div class="formActions">
+
+                    <button
+                        id="cancelNewGameButton"
+                        class="cancelButton"
+                        type="button"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        class="saveButton"
+                        type="submit"
+                    >
+                        Continue
+                    </button>
+
+                </div>
+
+            </form>
+
+        </section>
+
+
+        <!-- GAME CONFIRMATION SCREEN -->
+        <section id="gameConfirmationScreen" class="screen">
+
+            <div class="confirmationHeader">
+
+                <h2 id="confirmationTeamName">
+                    Team Name
+                </h2>
+
+                <p class="versusText">vs</p>
+
+                <h3 id="confirmationOpponent">
+                    Opponent
+                </h3>
+
+                <p id="confirmationGameDetails"></p>
+
+            </div>
+
+            <section class="formCard">
+    <h3>Team Statistics for This Game</h3>
+
+    <p class="formHelpText">
+        Your team defaults are selected below. Adjust them for this game if needed.
+    </p>
+
+    <div
+        id="gameTeamStatChoices"
+        class="statChoiceGrid"
+    ></div>
+</section>
+
+<section class="formCard">
+    <h3>Player Statistics for This Game</h3>
+
+    <p class="formHelpText">
+        Your team defaults are selected below. Adjust them for this game if needed.
+    </p>
+
+    <div
+        id="gamePlayerStatChoices"
+        class="statChoiceGrid"
+    ></div>
+</section>
+
+            <section class="formCard">
+    <h3>Starting 5 for This Game</h3>
+
+    <p class="formHelpText">
+        These starters apply to this game only.
+    </p>
+
+    <div
+        id="gameStartersList"
+        class="gameStartersList"
+    ></div>
+</section>
+
+            <div class="formActions">
+
+                <button
+                    id="backToGameSetupButton"
+                    class="cancelButton"
+                    type="button"
+                >
+                    Back
+                </button>
+
+                <button
+                    id="confirmStartGameButton"
+                    class="saveButton"
+                    type="button"
+                >
+                    START GAME
+                </button>
+
+            </div>
+
+        </section>
+
+        <!-- TEAM DETAILS SCREEN -->
+        <section id="teamDetailsScreen" class="screen">
+
+            <div class="sectionHeading">
+                <div>
+                    <h2 id="detailsTeamName">Team Name</h2>
+                    <p id="detailsTeamInformation"></p>
+                </div>
+
+                <button
+                    id="startTeamGameButton"
+                    class="primaryButton"
+                    type="button"
+                >
+                    🏀 Start New Game
+                </button>
+            </div>
+
+            <p
+                id="teamStorageWarning"
+                class="lineupNote lineupNoteWarn storageWarningNote"
+                hidden
+            ></p>
+
+            <section class="formCard">
+
+                <div class="cardHeading">
+                    <h3>Roster</h3>
+
+                    <button
+                        id="editDetailsTeamButton"
+                        class="secondaryButton"
+                        type="button"
+                    >
+                        Edit Team
+                    </button>
+                </div>
+
+                <div id="detailsRoster" class="detailsList"></div>
+<section class="formCard">
+
+    <div class="cardHeading">
+        <h3>Past Games</h3>
+    </div>
+
+    <div
+        id="pastGamesList"
+        class="pastGamesList"
+    >
+        <div class="emptyState">
+            <h3>No saved games yet</h3>
+            <p>
+                Completed games will appear here after you save them.
+            </p>
+        </div>
+    </div>
+
+</section>
+            </section>
+
+            <section class="formCard">
+
+                <h3>Selected Team Statistics</h3>
+
+                <div
+                    id="detailsTeamStats"
+                    class="detailsStatGrid"
+                ></div>
+
+            </section>
+
+            <section class="formCard">
+
+                <h3>Selected Player Statistics</h3>
+
+                <div
+                    id="detailsPlayerStats"
+                    class="detailsStatGrid"
+                ></div>
+
+            </section>
+
+        </section>
+        
+                <!-- LIVE GAME SCREEN -->
+        <section id="liveGameScreen" class="screen">
+
+            <div class="liveGameHeader">
+
+                <div>
+                    <img
+    src="images/Court94-logo.png"
+    alt="Court94"
+    class="liveGameLogo"
+>
+
+                    <h2 id="liveGameMatchup">
+                        Team vs Opponent
+                    </h2>
+
+                    <p id="liveGameDetails">
+                        Game details
+                    </p>
+                  
+                </div>
+
+                <div class="liveGameHeaderControls">
+
+    <button
+        id="editGameSetupButton"
+        class="editGameSetupButton"
+        type="button"
+    >
+        Edit Game Setup
+    </button>
+
+    <div class="periodControl">
+        <span>Period</span>
+
+        <select id="livePeriodSelect">
+            <option value="Q1">Q1</option>
+            <option value="Q2">Q2</option>
+            <option value="Q3">Q3</option>
+            <option value="Q4">Q4</option>
+            <option value="OT">OT</option>
+        </select>
+    </div>
+
+</div>
+
+</div>
+
+<!-- PLAYER / TEAM TABS -->
+
+
+            <!-- PLAYER / TEAM TABS -->
+            <div class="trackerTabs">
+
+                <button
+                    id="playersTabButton"
+                    class="trackerTab activeTrackerTab"
+                    type="button"
+                >
+                    TRACK
+                </button>
+
+                <button
+    id="summaryTabButton"
+    class="trackerTab"
+    type="button"
+>
+    SUMMARY
+</button>
+
+<div class="trackerTotal">
+    TOTAL: <strong id="liveTeamPointTotal">0</strong>
+</div>
+
+<!-- OPPONENT SCORING (only when the Opponent Scoring stat is on) -->
+<div
+    id="opponentScoring"
+    class="opponentScoring"
+    hidden
+>
+    <div class="opponentScoreTotal">
+        <span>OPP</span>
+        <strong id="liveOpponentPointTotal">0</strong>
+    </div>
+
+    <button
+        class="opponentPointButton"
+        type="button"
+        data-opponent-points="1"
+        aria-label="Opponent plus 1"
+    >
+        +1
+    </button>
+
+    <button
+        class="opponentPointButton"
+        type="button"
+        data-opponent-points="2"
+        aria-label="Opponent plus 2"
+    >
+        +2
+    </button>
+
+    <button
+        class="opponentPointButton"
+        type="button"
+        data-opponent-points="3"
+        aria-label="Opponent plus 3"
+    >
+        +3
+    </button>
+
+    <button
+        id="opponentUndoButton"
+        class="opponentUndoButton"
+        type="button"
+        aria-label="Undo last opponent basket"
+        disabled
+    >
+        UNDO
+    </button>
+</div>
+            </div>
+
+
+            <!-- PLAYER TRACKER -->
+            <section
+                id="playerTrackerPanel"
+                class="trackerPanel activeTrackerPanel"
+            >
+             <h3 class="trackerHeading">
+    Team Statistics
+</h3>
+
+<div
+    id="teamStatButtons"
+    class="liveStatGrid"
+></div>
+
+                <div
+                    id="playerBench"
+                    class="playerBench"
+                ></div>
+
+                <div
+                    id="selectedPlayerArea"
+                    class="selectedPlayerArea"
+                    hidden
+                >
+
+                    <div class="selectedPlayerHeader">
+
+                        <div>
+                            <p class="smallLabel">
+                                Selected Player
+                            </p>
+
+                            <h3 id="selectedPlayerName">
+                                Select a player
+                            </h3>
+                        </div>
+
+                    </div>
+
+                    <div
+                        id="playerStatButtons"
+                        class="liveStatGrid"
+                    ></div>
+
+                </div>
+
+            </section>
+
+            <!-- LIVE SUMMARY -->
+<section
+    id="summaryTrackerPanel"
+    class="trackerPanel"
+>
+
+    <h3 class="trackerHeading">
+        Game Summary
+    </h3>
+
+    <section class="formCard">
+        <h3>Team Stats</h3>
+
+        <div
+            id="liveSummaryTeamStats"
+            class="liveSummaryTableWrap"
+        ></div>
+    </section>
+
+    <section class="formCard">
+        <h3>Player Stats</h3>
+
+        <div
+            id="liveSummaryPlayerStats"
+            class="liveSummaryTableWrap"
+        ></div>
+    </section>
+
+    <section
+        id="liveSummaryLineupCard"
+        class="formCard"
+        hidden
+    >
+        <h3>Lineup Plus/Minus</h3>
+
+        <div id="liveSummaryLineups"></div>
+    </section>
+
+</section>
+
+
+            <!-- LAST ACTION / UNDO -->
+            <div class="lastActionBar" hidden>
+
+                <div>
+                    <p class="smallLabel">
+                        Last Action
+                    </p>
+
+                    <p id="lastActionText">
+                        No stats recorded yet.
+                    </p>
+                </div>
+
+                <button
+                    id="undoLastActionButton"
+                    class="undoButton"
+                    type="button"
+                    disabled
+                >
+                    UNDO
+                </button>
+
+            </div>
+
+
+            <div class="finishGameArea">
+
+                <button
+                    id="finishGameButton"
+                    class="finishGameButton"
+                    type="button"
+                >
+                    Finish Game
+                </button>
+
+            </div>
+
+        </section>
+                <!-- GAME SUMMARY SCREEN -->
+        <section id="gameSummaryScreen" class="screen">
+
+            <div class="sectionHeading">
+                <div>
+                    <h2>Game Summary</h2>
+                    <p id="summaryMatchup">
+                        Team vs Opponent
+                    </p>
+                </div>
+            </div>
+
+            <section class="formCard">
+
+                <h3>Final Score</h3>
+
+                <div class="scoreEntryGrid">
+
+                    <label class="formField">
+                        Your Team
+                        <input
+                            id="summaryTeamScore"
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            readonly
+                        >
+                    </label>
+
+                    <label class="formField">
+                        Opponent
+                        <input
+                            id="summaryOpponentScore"
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                        >
+                    </label>
+
+                </div>
+
+                <p
+                    id="summaryScoreNote"
+                    class="lineupNote lineupNoteWarn summaryScoreNote"
+                    hidden
+                ></p>
+
+            </section>
+
+            <section class="formCard">
+
+                <h3>Team Stats</h3>
+
+                <div
+                    id="summaryTeamStats"
+                    class="detailsStatGrid"
+                ></div>
+
+            </section>
+
+            <section class="formCard">
+
+                <h3>Player Stats</h3>
+
+                <div
+                    id="summaryPlayerStats"
+                    class="summaryPlayerList"
+                ></div>
+
+            </section>
+
+            <section
+                id="summaryLineupCard"
+                class="formCard"
+                hidden
+            >
+
+                <h3>Lineup Plus/Minus</h3>
+
+                <div id="summaryLineups"></div>
+
+            </section>
+
+            <div class="formActions">
+
+                <button
+                    id="returnToLiveGameButton"
+                    class="cancelButton"
+                    type="button"
+                >
+                    Back to Game
+                </button>
+
+                <button
+                    id="saveCompletedGameButton"
+                    class="saveButton"
+                    type="button"
+                >
+                    Save Game
+                </button>
+
+            </div>
+
+        </section>
+        <!-- PLACEHOLDER SCREENS -->
+        <section id="gamesScreen" class="screen">
+    <div class="sectionHeading">
+        <div>
+            <h2>Games</h2>
+            <p>Start a new game or review past games.</p>
+        </div>
+
+        <button
+            id="startNewGameButton"
+            class="primaryButton"
+            type="button"
+        >
+            + Start New Game
+        </button>
+    </div>
+
+    <section class="formCard">
+    <h3>Your Teams</h3>
+
+    <div
+        id="gamesTeamCards"
+        class="gamesTeamCards"
+    ></div>
+</section>
+
+<section class="formCard">
+    <div class="cardHeading">
+        <h3>Past Games</h3>
+    </div>
+
+    <div id="gamesList" class="gamesList">
+        <div class="emptyState">
+            <h3>Select a team</h3>
+            <p>Choose a team above to view its past games.</p>
+        </div>
+    </div>
+</section>
+</section>
+        <section id="reportsScreen" class="screen">
+   <div class="reportsHeader">
+    <h2>Reports</h2>
+
+    <div class="reportsFilters">
+        <div class="reportsTeamSection">
+    <h3>Select Team</h3>
+
+    <div
+        id="reportsTeamCards"
+        class="reportsTeamCards"
+    ></div>
+</div>
+
+        <label class="reportsSeasonFilter">
+            Season
+
+            <select id="reportsSeasonFilter">
+                <option value="">Select Season</option>
+            </select>
+        </label>
+    </div>
+</div>
+
+    <div id="reportsContent">
+        <div class="emptyState">
+            <h3>Select a team</h3>
+            <p>
+                Choose a team to view season reports.
+            </p>
+        </div>
+    </div>
+</section>
+
+        <section id="settingsScreen" class="screen">
+            <div class="sectionHeading">
+                <div>
+                    <h2>Settings</h2>
+                    <p>Manage your Court94 preferences.</p>
+                </div>
+            </div>
+
+            <!-- PUBLIC BETA REMINDER (display only) -->
+            <aside class="betaNotice betaNoticeCompact" aria-label="Public Beta">
+                <span class="betaBadge">Public Beta</span>
+
+                <p class="betaNoticeText">
+                    Court94 is free during beta testing. Pricing and launch
+                    details will be announced in advance.
+                </p>
+            </aside>
+
+            <section class="formCard backupCard">
+                <h3>Backup &amp; Restore</h3>
+
+                <p class="formNote backupIntro">
+                    Court94 saves your teams and games only on this device.
+                    Download a backup regularly and keep it somewhere safe,
+                    such as the Files app, iCloud Drive, or email.
+                </p>
+
+                <p class="formNote backupTip">
+                    <strong>Tip:</strong> On iPad, add Court94 to your Home Screen
+                    (Share → Add to Home Screen). Safari may clear saved website
+                    data for sites that haven't been used for several days, so keep
+                    downloading backups regularly.
+                </p>
+
+                <div class="backupActions">
+                    <button
+                        id="downloadBackupButton"
+                        class="primaryButton"
+                        type="button"
+                    >
+                        Download Backup
+                    </button>
+
+                    <button
+                        id="chooseRestoreFileButton"
+                        class="secondaryButton"
+                        type="button"
+                    >
+                        Restore from Backup
+                    </button>
+
+                    <input
+                        id="restoreBackupInput"
+                        type="file"
+                        hidden
+                    >
+                </div>
+
+                <p
+                    id="backupStatus"
+                    class="backupStatus"
+                    role="status"
+                ></p>
+
+                <!-- Shown only when a restore left a safety copy on this device (storage.js). -->
+                <div id="safetyCopyBlock" class="safetyCopyBlock" hidden>
+                    <h4>Restore Safety Copy</h4>
+
+                    <p id="safetyCopyText" class="formNote"></p>
+
+                    <div class="backupActions">
+                        <button
+                            id="downloadSafetyCopyButton"
+                            class="secondaryButton"
+                            type="button"
+                        >
+                            Download Safety Copy
+                        </button>
+
+                        <button
+                            id="removeSafetyCopyButton"
+                            class="cancelButton deleteButton"
+                            type="button"
+                        >
+                            Remove Safety Copy
+                        </button>
+                    </div>
+
+                    <p
+                        id="safetyCopyStatus"
+                        class="backupStatus"
+                        role="status"
+                    ></p>
+                </div>
+            </section>
+
+            <section
+                id="restorePanel"
+                class="formCard restorePanel"
+                hidden
+            ></section>
+
+            <!-- Read-only information about this device's storage (storage.js). -->
+            <section class="formCard storageCard">
+                <h3>Storage on This Device</h3>
+
+                <p
+                    id="storageWarning"
+                    class="lineupNote lineupNoteWarn storageWarningNote"
+                    hidden
+                ></p>
+
+                <dl id="storageInfo" class="storageInfo"></dl>
+
+                <div class="backupActions">
+                    <button
+                        id="checkStorageButton"
+                        class="cancelButton"
+                        type="button"
+                    >
+                        Check Again
+                    </button>
+                </div>
+            </section>
+
+            <!-- Read-only: whether Court94 can open without internet (offline.js). -->
+            <section class="formCard storageCard">
+                <h3>Offline Use</h3>
+
+                <dl id="offlineInfo" class="storageInfo"></dl>
+            </section>
+        </section>
+
+    </main>
+
+    <script src="script.js"></script>
+    <script src="backup.js"></script>
+    <script src="storage.js"></script>
+    <script src="offline.js"></script>
+
+</body>
+</html>
