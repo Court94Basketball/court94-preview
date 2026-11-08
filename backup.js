@@ -640,6 +640,16 @@ function applyCourt94Restore(plan, choices = {}) {
         );
     }
 
+    // The restored games and game in progress are the newest saves now
+    // (safetycopy.js), so an older safety copy can never replace them.
+    if (typeof copyGameSave === "function") {
+        copyGameSave();
+    }
+
+    // The restored game in progress is this page's own save (script.js), not
+    // a change made in another tab.
+    lastSavedRecoveryText = localStorage.getItem(LIVE_GAME_STORAGE_KEY);
+
     // Storage is now correct. Reload the tracker's in-memory copies from it
     // so later saves can't write stale data over the restore.
     teams = loadTeams();

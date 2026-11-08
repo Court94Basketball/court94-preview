@@ -20,14 +20,15 @@
 // fingerprint left out of date stops the update from installing, never mixes
 // versions. APP_VERSION is the first 10 characters of the SHA-256 of the
 // "<file> <fingerprint>" lines.
-const APP_VERSION = "a408936e4a";
+const APP_VERSION = "da56c972b0";
 const APP_FILES = {
-    "index.html": "ccd87165e14aed0205ad4715e9b5bed027af2ce1a86ae5bdea7184ef38ecfe98",
+    "index.html": "d6eac22d561b1d9c892ce29ed41e5589063ac2876ff8ed005eb231ff6783c193",
     "style.css": "a1b19a352a65d1337d934abee15f178cbb5fb96615d6ebb1525c978c86cd28ab",
-    "script.js": "b2f782bd336ac2424c62beb2175fb3c6d4c62b8e925be3d7ad756e3afac49540",
-    "backup.js": "91946e1c2c22dfb8fbaafd05f9157bab9aff7581919235071ad65c3330906e2a",
+    "script.js": "ca96a21268cab7200ac69d814a8d3787c395570abdb89158fe2aadf58138f7a5",
+    "backup.js": "e94ac339ff2e2354929f0fd8e23ed096b6c8257794469e604cab9b0e6fbcdda4",
     "storage.js": "cc060a87718a83db2828d0ddcfb7cf24bde2a9ecea9e50248a0a77210f474de3",
     "offline.js": "9aae3a7cd4901b3217fa25652e4d4d24126849cf021ddacd0124efba8a93e775",
+    "safetycopy.js": "a969f3d35f0cf255904ab5e551627d17f4e899231b7b8c5be5ab15a297a65a3b",
     "images/Court94 Banner Logo.png": "f751396ce17a0b7138c9d153ad5d1a4ed368f03fc5aec3c9e3920f143f57681d",
     "images/Court94-logo.png": "d6337ca2da22f2d1ba490e7f659f86dce175454bc8700c3ee16a760dd2cfbfc4"
 };

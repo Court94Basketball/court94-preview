@@ -247,6 +247,24 @@ function loadGames() {
         return [];
     }
 }
+// The saved games, or null when they can't be read (never an empty list in
+// place of games that are there but unreadable).
+function readSavedGamesIfReadable() {
+    try {
+        const text = localStorage.getItem(GAMES_STORAGE_KEY);
+
+        if (text === null) {
+            return [];
+        }
+
+        const saved = JSON.parse(text);
+
+        return Array.isArray(saved) ? saved : null;
+    } catch (error) {
+        return null;
+    }
+}
+
 function loadTeams() {
     try {
         const savedTeams = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -358,37 +376,94 @@ function scheduleRecoveryRetry() {
     }, delay);
 }
 
-function saveLiveGameState() {
-    if (!liveGameState) {
-        clearRecoveryRetry();
+// What this page last saved as the game recovery (null: nothing yet, or no
+// game in progress).
+let lastSavedRecoveryText = null;
 
-        try {
-            localStorage.removeItem("court94LiveGameRecovery");
-        } catch (error) {
-            console.error("Court94 could not clear the game recovery:", error);
-        }
-
-        setRecoveryWarning(false);
-        return true;
-    }
-
-    const recoveryData = {
+function getRecoveryText() {
+    return JSON.stringify({
         liveGameState,
         liveActionHistory,
         selectedLivePlayerId,
         selectedTeamId,
         currentGameSetup
-    };
+    });
+}
+
+// Two Court94 tabs or windows on one game: each page only saves over the game
+// it last saved or opened. If another page changed it since, this page shows
+// the newest version instead of overwriting it.
+let gameChangedElsewhere = false;
+
+function isSavedGameChangedElsewhere() {
+    try {
+        return (
+            localStorage.getItem("court94LiveGameRecovery") !==
+            lastSavedRecoveryText
+        );
+    } catch (error) {
+        return false;
+    }
+}
+
+function showNewestSavedGame() {
+    if (gameChangedElsewhere) {
+        return;
+    }
+
+    gameChangedElsewhere = true;
+    clearRecoveryRetry();
+
+    alert(
+        "This game was changed in another Court94 tab or window.\n\n" +
+        "Court94 will now show the newest version. Your last entry here " +
+        "wasn't saved, so check the game and enter it again if needed."
+    );
+
+    location.reload();
+}
+
+function saveLiveGameState() {
+    if (gameChangedElsewhere) {
+        return false;
+    }
+
+    if (!liveGameState) {
+        // Only clear the game this page knows: a game started in another
+        // tab stays.
+        if (!isSavedGameChangedElsewhere()) {
+            try {
+                localStorage.removeItem("court94LiveGameRecovery");
+            } catch (error) {
+                console.error("Court94 could not clear the game recovery:", error);
+            }
+        }
+
+        lastSavedRecoveryText = null;
+        clearRecoveryRetry();
+        setRecoveryWarning(false);
+        copyGameSaveIfLoaded();
+        return true;
+    }
+
+    if (isSavedGameChangedElsewhere()) {
+        showNewestSavedGame();
+        return false;
+    }
+
+    const recoveryText = getRecoveryText();
 
     const saved = writeStorageVerified(
         "court94LiveGameRecovery",
-        JSON.stringify(recoveryData)
+        recoveryText
     );
 
     setRecoveryWarning(!saved);
 
     if (saved) {
+        lastSavedRecoveryText = recoveryText;
         clearRecoveryRetry();
+        copyGameSaveIfLoaded();
     } else {
         scheduleRecoveryRetry();
     }
@@ -409,7 +484,31 @@ function explainRecoveryWarning() {
     );
 }
 
+// The game-save safety copy (safetycopy.js) loads after this file.
+function copyGameSaveIfLoaded() {
+    if (typeof copyGameSave === "function") {
+        copyGameSave();
+    }
+}
+
 window.addEventListener("pagehide", () => {
+    // Saves the browser lost are being put back (safetycopy.js): saving the
+    // older game from memory now would undo that.
+    if (typeof safetyRestoring !== "undefined" && safetyRestoring) {
+        return;
+    }
+
+    // No game here, nothing changed since this page last saved it, or another
+    // tab changed the game since: saving now could only overwrite (or
+    // remove) a newer game saved in another Court94 tab.
+    if (
+        !liveGameState ||
+        getRecoveryText() === lastSavedRecoveryText ||
+        isSavedGameChangedElsewhere()
+    ) {
+        return;
+    }
+
     saveLiveGameState();
 });
 
@@ -6189,6 +6288,21 @@ function saveCompletedGame() {
         return;
     }
 
+    // Another Court94 tab or window changed this game since this page last
+    // saved it: show the newest version instead of saving an older one.
+    if (isSavedGameChangedElsewhere()) {
+        showNewestSavedGame();
+        return;
+    }
+
+    // Start from the saved games as they are now, which may include games
+    // saved in another tab since this page opened.
+    const storedGames = readSavedGamesIfReadable();
+
+    if (storedGames) {
+        savedGames = storedGames;
+    }
+
     const gameId = liveGameState.completedGameId || crypto.randomUUID();
 
     // Already saved (a save that finished just before the app was closed):
@@ -8963,6 +9077,10 @@ renderTeams();
 
 const savedLiveGameRecovery =
     localStorage.getItem("court94LiveGameRecovery");
+
+// What this page opened counts as saved by it (exactly as stored, even if
+// it can't be read), so only later changes by another tab count as theirs.
+lastSavedRecoveryText = savedLiveGameRecovery;
 
 if (savedLiveGameRecovery) {
     try {

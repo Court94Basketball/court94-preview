@@ -1236,6 +1236,7 @@
     <script src="script.js"></script>
     <script src="backup.js"></script>
     <script src="storage.js"></script>
+    <script src="safetycopy.js"></script>
     <script src="offline.js"></script>
 
 </body>
