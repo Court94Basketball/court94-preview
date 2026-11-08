@@ -229,6 +229,21 @@ async function restoreLostSaves() {
         return;
     }
 
+    // Reopen on the restored game: the screen Court94 was on may have been
+    // lost in the same crash.
+    try {
+        const restoredGame = JSON.parse(game.recoveryText || "null")?.liveGameState;
+
+        if (restoredGame) {
+            localStorage.setItem(
+                "court94CurrentScreen",
+                restoredGame.summaryOpen ? "gameSummary" : "liveGame"
+            );
+        }
+    } catch (error) {
+        console.error("Court94 couldn't choose the screen to reopen on:", error);
+    }
+
     console.warn("Court94 put back game saves the browser hadn't kept.");
     sessionStorage.setItem(SAFETY_RESTORED_KEY, String(game.number));
     location.reload();

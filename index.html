@@ -70,6 +70,15 @@
 
     <main class="appContainer">
 
+        <!-- Shown while a game isn't finished and saved, except on that game's
+             tracker and summary (script.js). -->
+        <div id="unfinishedGameBar" class="unfinishedGameBar" hidden>
+            <span id="unfinishedGameText" class="unfinishedGameText">Unfinished game</span>
+            <button id="continueGameButton" class="continueGameButton" type="button">
+                Continue Game
+            </button>
+        </div>
+
         <!-- HOME SCREEN -->
 <section id="homeScreen" class="screen activeScreen">
 

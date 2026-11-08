@@ -3808,6 +3808,44 @@ p.betaNoticeText {
     display: none;
 }
 
+/* Unfinished game: a way back to it from every other screen. */
+.unfinishedGameBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 10px 12px 10px 16px;
+    border: 2px solid var(--gold);
+    border-radius: 12px;
+    background: var(--navy);
+    color: #ffffff;
+}
+
+.unfinishedGameBar[hidden] {
+    display: none;
+}
+
+.unfinishedGameText {
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+.continueGameButton {
+    flex: 0 0 auto;
+    min-height: 48px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--gold);
+    color: var(--navy-dark);
+    font-size: 17px;
+    font-weight: 900;
+    touch-action: manipulation;
+}
+
 .recoveryWarningTitle {
     font-size: 14px;
     font-weight: 900;

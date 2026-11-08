@@ -544,10 +544,104 @@ function showScreen(screenName) {
     homeButton.classList.remove("hidden");
 }
 
+    if (!["newGame", "gameConfirmation"].includes(screenName)) {
+        replaceUnfinishedGameApproved = false;
+    }
+
+    updateUnfinishedGameBar(screenName);
+
     window.scrollTo({
         top: 0,
         behavior: "smooth"
     });
+}
+
+// ---------- Unfinished game ----------
+// A game stays in progress until Save Game, even when the coach leaves the
+// tracker or Court94 reopens elsewhere. The bar leads back to it from every
+// other screen, and starting a new game never replaces it unasked.
+
+// Set when the coach chose to delete the unfinished game for a new one.
+let replaceUnfinishedGameApproved = false;
+
+function isOnUnfinishedGame(screenName) {
+    return (
+        screenName === "liveGame" ||
+        (screenName === "gameSummary" && !viewingSavedGame) ||
+        (screenName === "gameConfirmation" && editingLiveGameSetup)
+    );
+}
+
+function updateUnfinishedGameBar(screenName) {
+    const bar = document.getElementById("unfinishedGameBar");
+
+    if (!bar) {
+        return;
+    }
+
+    const show = Boolean(liveGameState) && !isOnUnfinishedGame(screenName);
+
+    bar.hidden = !show;
+
+    if (show) {
+        document.getElementById("unfinishedGameText").textContent =
+            `Unfinished game vs ${liveGameState.opponent || "opponent"}` +
+            (liveGameState.summaryOpen ? " (not saved yet)" : "");
+    }
+}
+
+// Back to the unfinished game: its tracker, or its summary if it was
+// finished but not saved. Always with the game's own team.
+function continueUnfinishedGame() {
+    if (!liveGameState) {
+        return;
+    }
+
+    selectedTeamId = liveGameState.teamId || selectedTeamId;
+
+    // The game's own setup (a new game's form may have been filled in and
+    // abandoned meanwhile).
+    currentGameSetup = {
+        teamId: liveGameState.teamId,
+        opponent: liveGameState.opponent,
+        gameType: liveGameState.gameType,
+        location: liveGameState.location,
+        gameFormat: liveGameState.gameFormat,
+        gameDate: liveGameState.gameDate
+    };
+
+    updateAppTeamBadge();
+    renderLiveGame();
+
+    if (liveGameState.summaryOpen) {
+        openGameSummary();
+    } else {
+        showScreen("liveGame");
+    }
+}
+
+// Starting a new game while one is unfinished: go back to it (first
+// choice), keep it, or delete it for the new game. True only for delete.
+function confirmReplaceUnfinishedGame() {
+    const name = `vs ${liveGameState.opponent || "opponent"}`;
+
+    if (
+        confirm(
+            `Unfinished game ${name}\n\n` +
+            "This game hasn't been finished and saved yet.\n\n" +
+            "Tap OK to go back to it.\n" +
+            "Tap Cancel for other choices."
+        )
+    ) {
+        continueUnfinishedGame();
+        return false;
+    }
+
+    return confirm(
+        `Delete the unfinished game ${name} and start a new game?\n\n` +
+        "All of its stats will be permanently deleted. This can't be undone.\n\n" +
+        "Tap Cancel to keep it."
+    );
 }
 
 function createBlankPlayer() {
@@ -1153,6 +1247,15 @@ function startLiveGame() {
     if (!team || !currentGameSetup) {
         return;
     }
+
+    // Last check before the new game replaces an unfinished one.
+    if (liveGameState && !replaceUnfinishedGameApproved) {
+        if (!confirmReplaceUnfinishedGame()) {
+            return;
+        }
+    }
+
+    replaceUnfinishedGameApproved = false;
 
     const gameStarters = Array.from(
     document.querySelectorAll(
@@ -6988,6 +7091,15 @@ function openNewGameScreen() {
         return;
     }
 
+    // An unfinished game is never replaced without the coach choosing to.
+    if (liveGameState && !replaceUnfinishedGameApproved) {
+        if (!confirmReplaceUnfinishedGame()) {
+            return;
+        }
+
+        replaceUnfinishedGameApproved = true;
+    }
+
     document.getElementById("newGameForm").reset();
 
     document.querySelector(
@@ -8766,6 +8878,11 @@ document
     .getElementById("editGameSetupButton")
     .addEventListener("click", openLiveGameSetupEditor);
 
+    // (Optional: a page from another version may not have the bar.)
+    document
+    .getElementById("continueGameButton")
+    ?.addEventListener("click", continueUnfinishedGame);
+
     document
     .getElementById("playersTabButton")
     .addEventListener("click", showTrackTab);
@@ -8931,7 +9048,7 @@ document
 
     if (activeScreen?.id === "liveGameScreen") {
         const confirmed = window.confirm(
-            "Leave this game?\n\nIf you continue, all unsaved game stats will be lost and you will return to Home."
+            "Leave the tracker?\n\nThis game stays in progress. To come back to it, tap Continue Game at the top of the screen.\n\nTo end the game, tap Finish Game instead."
         );
 
         if (!confirmed) {
@@ -8946,7 +9063,7 @@ document
         liveGameState
     ) {
         const confirmed = window.confirm(
-            "Leave without saving this game?\n\nThis game hasn't been saved yet. If you continue, all of its stats will be lost and you will return to Home.\n\nTap Cancel, then Save Game, to keep it."
+            "Leave without saving this game?\n\nThis game hasn't been saved yet. It stays here unsaved: tap Continue Game at the top of the screen to come back and save it.\n\nTap Cancel, then Save Game, to save it now."
         );
 
         if (!confirmed) {
@@ -9097,8 +9214,12 @@ if (savedLiveGameRecovery) {
             selectedLivePlayerId =
                 recoveryData.selectedLivePlayerId || null;
 
+            // Always the game's own team (another team may have been
+            // selected while browsing during the game).
             selectedTeamId =
-                recoveryData.selectedTeamId || null;
+                recoveryData.liveGameState.teamId ||
+                recoveryData.selectedTeamId ||
+                null;
 
             currentGameSetup =
                 recoveryData.currentGameSetup || null;
@@ -9126,6 +9247,12 @@ if (
 
 let savedScreen =
     localStorage.getItem("court94CurrentScreen");
+
+// The screen wasn't kept (e.g. the browser lost it in a crash) but a game is
+// in progress: go back to that game.
+if (liveGameState && !savedScreen) {
+    savedScreen = liveGameState.summaryOpen ? "gameSummary" : "liveGame";
+}
 
     if (
     savedScreen === "liveGame" &&
