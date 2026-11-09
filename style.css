@@ -3496,6 +3496,8 @@ p.betaNoticeText {
     letter-spacing: 0.06em;
 }
 
+/* Our score (TOTAL) and the opponent's score: one size for both. */
+.trackerTotal strong,
 .opponentScoreTotal strong {
     font-size: 22px;
     line-height: 1.1;
