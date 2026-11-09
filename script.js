@@ -2713,6 +2713,10 @@ if (
 
                 liveActionHistory.splice(i, 1);
                 renderTeamStatButtons();
+                renderLastAction();
+                // Saved straight away, like the other undos, so the undo
+                // survives the app closing.
+                saveLiveGameState();
                 return;
             }
         }
@@ -5198,10 +5202,6 @@ function recordTeamStat(statKey, amount = 1) {
         return;
     }
 
-    // What the tap actually changed (a − at 0 changes nothing), so Undo can
-    // take back exactly that.
-    const gameBefore = liveGameState.teamStats[statKey] || 0;
-
     liveGameState.teamStats[statKey] =
     Math.max(
         0,
@@ -5210,9 +5210,6 @@ function recordTeamStat(statKey, amount = 1) {
 
     const currentPeriod =
     liveGameState.period;
-
-    const periodBefore =
-        liveGameState.teamStatsByPeriod[currentPeriod]?.[statKey] || 0;
 
 if (
     !liveGameState.teamStatsByPeriod[
@@ -5240,10 +5237,6 @@ liveGameState.teamStatsByPeriod[
         type: "teamStat",
         statKey,
         amount,
-        gameChange: liveGameState.teamStats[statKey] - gameBefore,
-        periodChange:
-            liveGameState.teamStatsByPeriod[currentPeriod][statKey] -
-            periodBefore,
         period: liveGameState.period,
         description:
             `Team — ${stat.name}`
@@ -6924,70 +6917,175 @@ updateLiveTeamPointTotal();
         return;
     }
 }
-// Main Undo: takes back the most recent action exactly as it was recorded,
-// with the same undo as that action's own control (player card, team
-// shooting card, opponent, transition), so every linked total — player,
-// team, period, unknown shooter, score and plus/minus — is reversed once.
 function undoLastAction() {
-    const lastAction = liveActionHistory[liveActionHistory.length - 1];
+    const lastAction =
+        liveActionHistory.pop();
+
+    // Only for baskets this Undo actually takes back, so the lineup log
+    // always matches the score.
+    if (
+        lastAction?.type === "playerPoints" ||
+        lastAction?.type === "opponentPoints"
+    ) {
+        removeScoringLogEvent(lastAction.scoringEventId);
+    }
+        console.log("UNDO ACTION:", lastAction);
 
     if (!lastAction) {
         return;
     }
 
-    // Each of these undoes the most recent action of its kind, which is
-    // this one (it's the most recent of all).
-    if (
-        lastAction.type === "playerPoints" ||
-        lastAction.type === "playerMiss" ||
-        lastAction.type === "playerStat"
-    ) {
-        undoLastPlayerAction(lastAction.playerId);
-    } else if (
-        lastAction.type === "shootingStat" ||
-        lastAction.type === "unknownShot"
-    ) {
-        undoShootingResult(lastAction.statKey);
-    } else if (lastAction.type === "opponentPoints") {
-        undoOpponentPoints();
-    } else if (lastAction.type === "transitionPoints") {
-        reverseTeamCount("transitionPoints", lastAction);
-        liveActionHistory.pop();
-    } else if (lastAction.type === "teamStat") {
-        reverseTeamCount(lastAction.statKey, lastAction);
-        liveActionHistory.pop();
-    } else {
-        // Not an action this version knows how to take back: leave it.
-        return;
+    if (lastAction.type === "playerPoints") {
+        const playerState =
+            liveGameState.playerStatsById[
+                lastAction.playerId
+            ];
+
+            const actionPeriod =
+    lastAction.period || liveGameState.period;
+
+const periodPlayerState =
+    liveGameState.playerStatsByPeriod?.[
+        actionPeriod
+    ]?.[lastAction.playerId];
+
+if (periodPlayerState) {
+    periodPlayerState.points =
+        Math.max(
+            0,
+            (periodPlayerState.points || 0) -
+                lastAction.amount
+        );
+}
+
+        playerState.points = Math.max(
+            0,
+            (playerState.points || 0) -
+                lastAction.amount
+        );
+      // Undo linked Team Field Goal for Player +2
+if (lastAction.linkedTeamStat === "fieldGoals") {
+    const teamFG = liveGameState.teamStats.fieldGoals;
+
+    if (teamFG && typeof teamFG === "object") {
+        teamFG.made = Math.max(0, (teamFG.made || 0) - 1);
+        teamFG.attempted = Math.max(0, (teamFG.attempted || 0) - 1);
+    }
+
+    const periodFG =
+        liveGameState.teamStatsByPeriod?.[actionPeriod]?.fieldGoals;
+
+    if (periodFG && typeof periodFG === "object") {
+        periodFG.made = Math.max(0, (periodFG.made || 0) - 1);
+        periodFG.attempted = Math.max(
+            0,
+            (periodFG.attempted || 0) - 1
+        );
+    }
+}
+    }
+
+    if (lastAction.type === "playerStat") {
+        const playerState =
+            liveGameState.playerStatsById[
+                lastAction.playerId
+            ];
+
+        playerState[lastAction.statKey] =
+            Math.max(
+                0,
+                (playerState[
+                    lastAction.statKey
+                ] || 0) - 1
+            );
+
+            const actionPeriod =
+    lastAction.period || liveGameState.period;
+
+const periodPlayerState =
+    liveGameState.playerStatsByPeriod?.[
+        actionPeriod
+    ]?.[lastAction.playerId];
+
+if (periodPlayerState) {
+    periodPlayerState[lastAction.statKey] =
+        Math.max(
+            0,
+            (
+                periodPlayerState[
+                    lastAction.statKey
+                ] || 0
+            ) - 1
+        );
+}
+    }
+    if (lastAction.statKey === "defensiveRebounds") {
+    liveGameState.teamStats.defensiveRebounds =
+        Math.max(
+            0,
+            (liveGameState.teamStats.defensiveRebounds || 0) - 1
+        );
+
+    const periodTeamStats =
+        liveGameState.teamStatsByPeriod?.[actionPeriod];
+
+    if (periodTeamStats) {
+        periodTeamStats.defensiveRebounds =
+            Math.max(
+                0,
+                (periodTeamStats.defensiveRebounds || 0) - 1
+            );
+    }
+}
+if (lastAction.type === "transitionPoints") {
+    liveGameState.teamStats.transitionPoints =
+        Math.max(
+            0,
+            (
+                liveGameState.teamStats
+                    .transitionPoints || 0
+            ) - lastAction.amount
+        );
+}
+    if (lastAction.type === "teamStat") {
+        liveGameState.teamStats[
+            lastAction.statKey
+        ] =
+            Math.max(
+                0,
+                (
+                    liveGameState.teamStats[
+                        lastAction.statKey
+                    ] || 0
+                ) - 1
+            );
+
+            const actionPeriod =
+    lastAction.period || liveGameState.period;
+
+if (
+    liveGameState.teamStatsByPeriod?.[
+        actionPeriod
+    ]
+) {
+    liveGameState.teamStatsByPeriod[
+        actionPeriod
+    ][lastAction.statKey] =
+        Math.max(
+            0,
+            (
+                liveGameState.teamStatsByPeriod[
+                    actionPeriod
+                ][lastAction.statKey] || 0
+            ) - Math.abs(lastAction.amount || 1)
+        );
+}
     }
 
     renderPlayerStatButtons();
     renderTeamStatButtons();
     renderLastAction();
     renderOpponentScoring();
-    updateLiveTeamPointTotal();
-}
-
-// Takes back a team count (team stat card or transition points) for the
-// game and the action's period: exactly what the action changed when that
-// was recorded, otherwise its amount.
-function reverseTeamCount(statKey, action) {
-    const period = action.period || liveGameState.period;
-    const periodStats = liveGameState.teamStatsByPeriod?.[period];
-    const gameChange = action.gameChange ?? action.amount ?? 1;
-    const periodChange = action.periodChange ?? action.amount ?? 1;
-
-    liveGameState.teamStats[statKey] = Math.max(
-        0,
-        (liveGameState.teamStats[statKey] || 0) - gameChange
-    );
-
-    if (periodStats) {
-        periodStats[statKey] = Math.max(
-            0,
-            (periodStats[statKey] || 0) - periodChange
-        );
-    }
 }
 function openNewGameScreen() {
     const team = getSelectedTeam();
