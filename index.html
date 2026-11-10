@@ -748,19 +748,37 @@
     SUMMARY
 </button>
 
-<div class="trackerTotal">
-    TOTAL: <strong id="liveTeamPointTotal">0</strong>
-</div>
+            </div>
 
-<!-- OPPONENT SCORING (only when the Opponent Scoring stat is on) -->
+            <!-- SCORES AND STATS: our team (blue, left) and the opponent (red,
+                 right). The score badges and opponent buttons show on both
+                 tabs; the stat tiles only on TRACK. -->
+            <div id="scorePanels" class="scorePanels">
+
+                <section class="teamPanel">
+                    <div class="scoreBadge teamScoreBadge">
+                        <span id="liveTeamName" class="scoreName">Team</span>
+                        <strong id="liveTeamPointTotal" class="scoreNumber">0</strong>
+                    </div>
+
+                    <div
+                        id="teamStatButtons"
+                        class="liveStatGrid"
+                    ></div>
+                </section>
+
+                <section id="opponentPanel" class="opponentPanel" hidden>
+
+<!-- OPPONENT SCORING (score and +1/+2/+3 when the Opponent Scoring stat is on;
+     UNDO whenever the red side shows). Phones: pinned to the bottom. -->
 <div
     id="opponentScoring"
     class="opponentScoring"
     hidden
 >
-    <div class="opponentScoreTotal">
-        <span>OPP</span>
-        <strong id="liveOpponentPointTotal">0</strong>
+    <div class="scoreBadge opponentScoreBadge opponentScoreTotal">
+        <span id="liveOpponentName" class="scoreName">Opponent</span>
+        <strong id="liveOpponentPointTotal" class="scoreNumber">0</strong>
     </div>
 
     <button
@@ -794,12 +812,20 @@
         id="opponentUndoButton"
         class="opponentUndoButton"
         type="button"
-        aria-label="Undo last opponent basket"
+        aria-label="Undo the last opponent entry"
         disabled
     >
         UNDO
     </button>
 </div>
+
+                    <div
+                        id="opponentStatButtons"
+                        class="liveStatGrid opponentStatGrid"
+                        hidden
+                    ></div>
+                </section>
+
             </div>
 
 
@@ -808,15 +834,6 @@
                 id="playerTrackerPanel"
                 class="trackerPanel activeTrackerPanel"
             >
-             <h3 class="trackerHeading">
-    Team Statistics
-</h3>
-
-<div
-    id="teamStatButtons"
-    class="liveStatGrid"
-></div>
-
                 <div
                     id="playerBench"
                     class="playerBench"

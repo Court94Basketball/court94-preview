@@ -413,6 +413,17 @@ button {
     gap: 11px;
 }
 
+/* "Opponent" heading inside the team statistics choices (spans the grid). */
+.statChoiceGroupHeading {
+    grid-column: 1 / -1;
+    margin: 8px 0 0;
+    color: var(--danger);
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
 .statChoice {
     display: flex;
     align-items: flex-start;
@@ -872,7 +883,7 @@ button {
 
 .trackerTabs {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     margin-bottom: 18px;
     border-bottom: 2px solid var(--border);
 }
@@ -3496,8 +3507,6 @@ p.betaNoticeText {
     letter-spacing: 0.06em;
 }
 
-/* Our score (TOTAL) and the opponent's score: one size for both. */
-.trackerTotal strong,
 .opponentScoreTotal strong {
     font-size: 22px;
     line-height: 1.1;
@@ -3743,48 +3752,308 @@ p.betaNoticeText {
     background: var(--danger);
 }
 
-/* ---------- LANDSCAPE: OPPONENT SCORING IN THE TOP ROW ----------
-   On the five-across landscape tracker the red controls sit in the
-   TRACK / SUMMARY / TOTAL row instead of the bottom bar, so they never cover
-   the player cards. The row stays at the top of the screen while scrolling
-   to the bench. Portrait and phones keep the bottom bar. */
-@media (orientation: landscape) and (min-width: 1024px) {
-    body.liveTrackerActive #liveGameScreen.opponentScoringOn {
-        padding-bottom: 0;
+/* ---------- SCORES AND STATS: US (BLUE, LEFT) AND THE OPPONENT (RED, RIGHT) ----------
+   index.html #scorePanels, between the TRACK / SUMMARY tabs and the tab
+   content. Both scores use one style (team name above the number), so they
+   always match. The red side shows while Opponent Scoring or any opponent
+   stat is chosen (script.js renderOpponentScoring).
+   iPad (at least 700 x 600, portrait or landscape): blue left, red anchored
+   right. Phones and short screens: stacked, with the red score, +1/+2/+3 and
+   UNDO pinned to the bottom as before. */
+.scorePanels {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.teamPanel,
+.opponentPanel {
+    min-width: 0;
+}
+
+.opponentPanel[hidden] {
+    display: none;
+}
+
+.scoreBadge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 64px;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-weight: 900;
+}
+
+.teamScoreBadge {
+    justify-self: start;
+    margin-bottom: 10px;
+    background: #e3ebf6;
+    color: var(--navy);
+}
+
+.opponentScoreBadge {
+    background: #fdecea;
+    color: var(--danger);
+}
+
+/* One rule for both scores: same size, weight and line height. */
+.scoreBadge .scoreName {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.scoreBadge .scoreNumber {
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 1.1;
+}
+
+/* Opponent Scoring off but opponent stats chosen: just UNDO. */
+.opponentScoring.opponentScoringOff .opponentScoreBadge,
+.opponentScoring.opponentScoringOff .opponentPointButton {
+    display: none;
+}
+
+/* The bottom bar shows whenever the red side does (phones). */
+#liveGameScreen:has(#opponentScoring:not([hidden])) {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+}
+
+/* SUMMARY tab: the scores and opponent buttons stay, the stat tiles don't. */
+#liveGameScreen:has(#summaryTrackerPanel.activeTrackerPanel) #teamStatButtons,
+#liveGameScreen:has(#summaryTrackerPanel.activeTrackerPanel) #opponentStatButtons {
+    display: none;
+}
+
+.opponentStatGrid[hidden] {
+    display: none;
+}
+
+@media (min-width: 700px) and (min-height: 600px) {
+    body.liveTrackerActive .scorePanels.hasOpponentPanel {
+        grid-template-columns: minmax(0, 1fr) minmax(368px, 400px);
+        align-items: start;
     }
 
-    body.liveTrackerActive .opponentScoringOn .trackerTabs {
-        position: sticky;
-        top: 0;
-        z-index: 5;
-        grid-template-columns:
-            minmax(96px, 150px) minmax(96px, 150px) auto minmax(0, 1fr);
-        column-gap: 8px;
-        background: var(--background);
+    body.liveTrackerActive .opponentPanel:not([hidden]) {
+        grid-column: 2;
+        display: grid;
+        gap: 6px;
     }
 
-    body.liveTrackerActive .opponentScoringOn .trackerTotal {
-        padding: 0 8px;
-        white-space: nowrap;
+    /* Both badges the same size, each at the top of its side. */
+    body.liveTrackerActive .scoreBadge {
+        width: 112px;
+        min-height: 52px;
+        padding: 2px 8px;
     }
 
     body.liveTrackerActive .opponentScoring {
         position: static;
-        grid-column: 4;
-        align-self: center;
+        display: grid;
+        /* 112 + 4 x 56 + 4 x 8 = 368: the red side is never narrower. */
+        grid-template-columns: 112px repeat(4, minmax(56px, 1fr));
+        gap: 8px;
         padding: 0;
         border: 0;
         background: transparent;
         box-shadow: none;
     }
 
-    body.liveTrackerActive .opponentScoreTotal {
-        min-width: 58px;
+    body.liveTrackerActive .opponentScoring.opponentScoringOff {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     body.liveTrackerActive .opponentPointButton,
     body.liveTrackerActive .opponentUndoButton {
+        min-width: 56px;
+        min-height: 52px;
+    }
+
+    /* Fits the narrower portrait buttons. */
+    body.liveTrackerActive .opponentUndoButton {
+        padding: 0 2px;
+        font-size: 15px;
+    }
+
+    body.liveTrackerActive #liveGameScreen:has(#opponentScoring:not([hidden])),
+    body.liveTrackerActive #liveGameScreen.opponentScoringOn {
+        padding-bottom: 0;
+    }
+
+    body.liveTrackerActive #opponentStatButtons {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    body.liveTrackerActive #opponentStatButtons[hidden] {
+        display: none;
+    }
+}
+
+/* iPad landscape: our badge beside our tiles (saves a row of height). */
+@media (orientation: landscape) and (min-width: 1024px) {
+    body.liveTrackerActive .teamPanel {
+        display: grid;
+        grid-template-columns: 112px minmax(0, 1fr);
+        gap: 6px;
+        align-items: start;
+    }
+
+    body.liveTrackerActive .teamScoreBadge {
+        margin-bottom: 0;
+    }
+
+    /* Long team names: the "Team vs Opponent" title shortens with …
+       instead of pushing Edit Game Setup and Period off the screen. */
+    body.liveTrackerActive .liveGameHeader > div:first-child {
+        flex: 1 1 auto;
+        overflow: hidden;
+    }
+
+    body.liveTrackerActive .liveGameHeader h2 {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    body.liveTrackerActive .liveGameHeaderControls {
+        flex-shrink: 0;
+    }
+}
+
+/* iPad portrait: our badge above our tiles, which use the compact
+   landscape style (name and count, then − and +) so both sides fit. */
+@media (orientation: portrait) and (min-width: 700px) and (min-height: 600px) {
+    body.liveTrackerActive .scorePanels.hasOpponentPanel {
+        grid-template-columns: minmax(0, 1fr) 368px;
+    }
+
+    body.liveTrackerActive .teamScoreBadge {
+        margin-bottom: 6px;
+    }
+
+    body.liveTrackerActive .scorePanels #teamStatButtons {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 6px;
+    }
+
+    body.liveTrackerActive .scorePanels .teamStatCardGrid {
+        display: contents;
+    }
+
+    body.liveTrackerActive .scorePanels #teamStatButtons.hasTeamShotReminder {
+        position: relative;
+        padding-top: 18px;
+    }
+
+    body.liveTrackerActive .scorePanels .teamShotReminder {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        margin: 0;
+        overflow: hidden;
+        font-size: 12px;
+        line-height: 16px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    body.liveTrackerActive .scorePanels .teamStatCard {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        min-height: 0;
+        border-radius: 10px;
+        box-shadow: none;
+    }
+
+    body.liveTrackerActive .scorePanels .teamStatCardName {
+        grid-column: 1;
+        grid-row: 1;
+        overflow: hidden;
+        padding: 4px 4px 2px 10px;
+        font-size: 12px;
+        line-height: 16px;
+        text-align: left;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    body.liveTrackerActive .scorePanels .teamStatCardName[data-short-label] {
+        font-size: 0;
+    }
+
+    body.liveTrackerActive .scorePanels .teamStatCardName[data-short-label]::before {
+        content: attr(data-short-label);
+        font-size: 12px;
+    }
+
+    body.liveTrackerActive .scorePanels .teamStatCardTotal {
+        grid-column: 2;
+        grid-row: 1;
+        padding: 4px 10px 2px 4px;
+        font-size: 16px;
+        line-height: 16px;
+        white-space: nowrap;
+    }
+
+    body.liveTrackerActive .scorePanels .teamStatCardTotal br {
+        display: none;
+    }
+
+    body.liveTrackerActive .scorePanels .teamStatCardControls {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    body.liveTrackerActive .scorePanels .teamStatCardControls button {
         min-height: 44px;
+        padding: 0 2px;
+        font-size: 16px;
+    }
+
+    body.liveTrackerActive .scorePanels .teamStatCardControls button .teamShotTag {
+        font-size: 9px;
+        letter-spacing: 0.5px;
+    }
+
+    body.liveTrackerActive .scorePanels .teamStatCardControls button .teamShotTag + span {
+        font-size: 15px;
+    }
+
+    body.liveTrackerActive .scorePanels .transitionPointsCard {
+        grid-column: 1 / -1;
+        border-radius: 10px;
+        box-shadow: none;
+    }
+
+    body.liveTrackerActive .scorePanels .transitionPointsHeader {
+        padding: 4px 10px 2px;
+        font-size: 12px;
+        line-height: 16px;
+    }
+
+    body.liveTrackerActive .scorePanels .transitionPointsHeader strong {
+        font-size: 16px;
+        line-height: 16px;
+    }
+
+    body.liveTrackerActive .scorePanels .transitionPointsButtons button {
+        min-height: 44px;
+        font-size: 16px;
     }
 }
 
