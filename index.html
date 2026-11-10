@@ -748,6 +748,21 @@
     SUMMARY
 </button>
 
+                <!-- iPads: both scores at the right of this row (the score
+                     boxes in the band below are hidden there). Phones keep
+                     the score boxes and don't show this. -->
+                <div id="trackerScoreboard" class="trackerScoreboard">
+                    <div class="scoreboardSide scoreboardUs">
+                        <span id="scoreboardTeamName" class="scoreName">Team</span>
+                        <strong id="scoreboardTeamTotal" class="scoreNumber">0</strong>
+                    </div>
+
+                    <div id="scoreboardOpponent" class="scoreboardSide scoreboardThem" hidden>
+                        <strong id="scoreboardOpponentTotal" class="scoreNumber">0</strong>
+                        <span id="scoreboardOpponentName" class="scoreName">Opponent</span>
+                    </div>
+                </div>
+
             </div>
 
             <!-- SCORES AND STATS: our team (blue, left) and the opponent (red,

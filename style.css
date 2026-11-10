@@ -3758,8 +3758,59 @@ p.betaNoticeText {
    always match. The red side shows while Opponent Scoring or any opponent
    stat is chosen (script.js renderOpponentScoring).
    iPad (at least 700 x 600, portrait or landscape): blue left, red anchored
-   right. Phones and short screens: stacked, with the red score, +1/+2/+3 and
+   right, and both scores move to the scoreboard at the right of the TRACK /
+   SUMMARY row (#trackerScoreboard; the score badges here are hidden).
+   Phones and short screens: stacked, with the red score, +1/+2/+3 and
    UNDO pinned to the bottom as before. */
+.trackerScoreboard {
+    display: none;
+}
+
+.scoreboardSide {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    min-height: 40px;
+    box-sizing: border-box;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-weight: 900;
+}
+
+.scoreboardSide[hidden] {
+    display: none;
+}
+
+.scoreboardUs {
+    background: #e3ebf6;
+    color: var(--navy);
+}
+
+.scoreboardThem {
+    background: #fdecea;
+    color: var(--danger);
+}
+
+/* Same type as the score badges; names shorten with … (full name on hold). */
+.scoreboardSide .scoreName {
+    min-width: 0;
+    max-width: 150px;
+    overflow: hidden;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.scoreboardSide .scoreNumber {
+    min-width: 1.6ch;
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 1.1;
+    text-align: center;
+}
 .scorePanels {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -3851,18 +3902,38 @@ p.betaNoticeText {
         gap: 6px;
     }
 
-    /* Both badges the same size, each at the top of its side. */
-    body.liveTrackerActive .scoreBadge {
-        width: 112px;
-        min-height: 52px;
-        padding: 2px 8px;
+    /* TRACK and SUMMARY together on the left, the scoreboard on the right. */
+    body.liveTrackerActive .trackerTabs {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    body.liveTrackerActive .trackerTab {
+        flex: 0 0 150px;
+    }
+
+    body.liveTrackerActive .trackerScoreboard {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        margin-left: auto;
+        padding-left: 8px;
+    }
+
+    /* The scores are on the scoreboard instead. */
+    body.liveTrackerActive .teamScoreBadge,
+    body.liveTrackerActive .opponentScoreBadge {
+        display: none;
     }
 
     body.liveTrackerActive .opponentScoring {
         position: static;
         display: grid;
-        /* 112 + 4 x 56 + 4 x 8 = 368: the red side is never narrower. */
-        grid-template-columns: 112px repeat(4, minmax(56px, 1fr));
+        /* The red side stays at least 368px wide, so +1/+2/+3/UNDO are
+           wider than 56px. */
+        grid-template-columns: repeat(4, minmax(56px, 1fr));
         gap: 8px;
         padding: 0;
         border: 0;
@@ -3902,19 +3973,7 @@ p.betaNoticeText {
     }
 }
 
-/* iPad landscape: our badge beside our tiles (saves a row of height). */
 @media (orientation: landscape) and (min-width: 1024px) {
-    body.liveTrackerActive .teamPanel {
-        display: grid;
-        grid-template-columns: 112px minmax(0, 1fr);
-        gap: 6px;
-        align-items: start;
-    }
-
-    body.liveTrackerActive .teamScoreBadge {
-        margin-bottom: 0;
-    }
-
     /* Long team names: the "Team vs Opponent" title shortens with …
        instead of pushing Edit Game Setup and Period off the screen. */
     body.liveTrackerActive .liveGameHeader > div:first-child {
@@ -3933,15 +3992,11 @@ p.betaNoticeText {
     }
 }
 
-/* iPad portrait: our badge above our tiles, which use the compact
-   landscape style (name and count, then − and +) so both sides fit. */
+/* iPad portrait: our tiles use the compact landscape style (name and count,
+   then − and +) so both sides fit. */
 @media (orientation: portrait) and (min-width: 700px) and (min-height: 600px) {
     body.liveTrackerActive .scorePanels.hasOpponentPanel {
         grid-template-columns: minmax(0, 1fr) 368px;
-    }
-
-    body.liveTrackerActive .teamScoreBadge {
-        margin-bottom: 6px;
     }
 
     body.liveTrackerActive .scorePanels #teamStatButtons {

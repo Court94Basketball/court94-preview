@@ -1495,10 +1495,16 @@ function renderLiveGame() {
     // Our name above our score (blue side).
     const teamScoreName = document.getElementById("liveTeamName");
 
-    if (teamScoreName) {
-        teamScoreName.textContent = team.teamName;
-        teamScoreName.title = team.teamName;
-    }
+    // ...and on the iPad scoreboard in the TRACK / SUMMARY row.
+    [
+        teamScoreName,
+        document.getElementById("scoreboardTeamName")
+    ].forEach((element) => {
+        if (element) {
+            element.textContent = team.teamName;
+            element.title = team.teamName;
+        }
+    });
 
     document.getElementById(
         "liveGameDetails"
@@ -1955,6 +1961,13 @@ function updateLiveTeamPointTotal() {
         ) + getUnknownShooterPoints();
 
     totalElement.textContent = totalPoints;
+
+    const scoreboardTotal =
+        document.getElementById("scoreboardTeamTotal");
+
+    if (scoreboardTotal) {
+        scoreboardTotal.textContent = totalPoints;
+    }
 }
 function connectPlayerCardButtons() {
     document
@@ -4115,19 +4128,37 @@ function renderOpponentScoring() {
         .getElementById("liveGameScreen")
         .classList.toggle("opponentScoringOn", isOn);
 
+    // The iPad scoreboard shows the opponent only with Opponent Scoring.
+    const scoreboardOpponent =
+        document.getElementById("scoreboardOpponent");
+
+    if (scoreboardOpponent) {
+        scoreboardOpponent.hidden = !isOn;
+    }
+
     if (!showPanel) {
         return;
     }
 
-    const name = document.getElementById("liveOpponentName");
+    const opponentName = liveGameState.opponent || "Opponent";
+    const opponentPoints = getTrackedOpponentPoints(liveGameState);
 
-    if (name) {
-        name.textContent = liveGameState.opponent || "Opponent";
-        name.title = liveGameState.opponent || "";
-    }
+    ["liveOpponentName", "scoreboardOpponentName"].forEach((id) => {
+        const name = document.getElementById(id);
 
-    document.getElementById("liveOpponentPointTotal").textContent =
-        getTrackedOpponentPoints(liveGameState);
+        if (name) {
+            name.textContent = opponentName;
+            name.title = liveGameState.opponent || "";
+        }
+    });
+
+    ["liveOpponentPointTotal", "scoreboardOpponentTotal"].forEach((id) => {
+        const total = document.getElementById(id);
+
+        if (total) {
+            total.textContent = opponentPoints;
+        }
+    });
 
     document.getElementById("opponentUndoButton").disabled =
         !liveActionHistory.some(isOpponentAction);
