@@ -3142,11 +3142,18 @@ p.betaNoticeText {
         display: none;
     }
 
-    /* Compact team strip: tiles share the width, so fewer stats get wider buttons */
+    /* Compact team strip: tiles wrap at 170px wide (the same rows as a
+       170px grid), and every row, the last one too, stretches across the
+       full width, so fewer stats get wider tiles and buttons. */
     body.liveTrackerActive #teamStatButtons {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         gap: 6px;
+    }
+
+    body.liveTrackerActive #teamStatButtons .teamStatCard {
+        flex: 1 1 170px;
+        min-width: 0;
     }
 
     body.liveTrackerActive .teamStatCardGrid {
@@ -3236,8 +3243,10 @@ p.betaNoticeText {
         font-size: 15px;
     }
 
+    /* Two tiles wide, like its two grid columns before. */
     body.liveTrackerActive .transitionPointsCard {
-        grid-column: span 2;
+        flex: 2 1 346px;
+        min-width: 0;
         border-radius: 10px;
         box-shadow: none;
     }
@@ -3766,16 +3775,28 @@ p.betaNoticeText {
     display: none;
 }
 
+/* Each side: name, then the number next to the middle of the scoreboard
+   (ours on the right of our side, theirs on the left of theirs). */
 .scoreboardSide {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     min-width: 0;
-    min-height: 40px;
+    min-height: 42px;
     box-sizing: border-box;
-    padding: 2px 10px;
+    padding: 1px 12px;
     border-radius: 10px;
     font-weight: 900;
+}
+
+.scoreboardUs .scoreName {
+    flex: 1 1 auto;
+    text-align: left;
+}
+
+.scoreboardThem .scoreName {
+    flex: 1 1 auto;
+    text-align: right;
 }
 
 .scoreboardSide[hidden] {
@@ -3792,23 +3813,26 @@ p.betaNoticeText {
     color: var(--danger);
 }
 
-/* Same type as the score badges; names shorten with … (full name on hold). */
+/* Names shorten with … (full name on hold). One number size for both teams:
+   large enough to read at a glance, still inside the 44px tab row. */
 .scoreboardSide .scoreName {
     min-width: 0;
-    max-width: 150px;
     overflow: hidden;
-    font-size: 12px;
-    letter-spacing: 0.06em;
+    font-size: 13px;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     white-space: nowrap;
     text-overflow: ellipsis;
 }
 
+/* The number never shrinks (100+ scores too); the name gives way. */
 .scoreboardSide .scoreNumber {
-    min-width: 1.6ch;
-    font-size: 22px;
+    flex: 0 0 auto;
+    min-width: 2ch;
+    font-size: 32px;
     font-weight: 900;
-    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
     text-align: center;
 }
 .scorePanels {
@@ -3913,13 +3937,22 @@ p.betaNoticeText {
         flex: 0 0 150px;
     }
 
+    /* Two equal halves (up to 460px together), so both teams get the same
+       space whatever their names; narrower screens shorten the names. */
     body.liveTrackerActive .trackerScoreboard {
-        display: flex;
-        align-items: center;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        flex: 0 1 460px;
         gap: 6px;
         min-width: 0;
         margin-left: auto;
         padding-left: 8px;
+    }
+
+    /* Opponent Scoring off: just our side, the same size as one half. */
+    body.liveTrackerActive .trackerScoreboard:has(#scoreboardOpponent[hidden]) {
+        grid-template-columns: minmax(0, 1fr);
+        flex-basis: 233px;
     }
 
     /* The scores are on the scoreboard instead. */
@@ -3962,10 +3995,22 @@ p.betaNoticeText {
         padding-bottom: 0;
     }
 
+    /* Up to three red tiles a row, each row filling the red side: 1, 2 or 3
+       stats in one row, 4 as two pairs, 5 as three and two, 6 as two
+       threes (script.js sets data-count). */
     body.liveTrackerActive #opponentStatButtons {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         gap: 6px;
+    }
+
+    body.liveTrackerActive #opponentStatButtons > .teamStatCard {
+        flex: 1 1 calc((100% - 12px) / 3 - 1px);
+        min-width: 0;
+    }
+
+    body.liveTrackerActive #opponentStatButtons[data-count="4"] > .teamStatCard {
+        flex-basis: calc((100% - 6px) / 2 - 1px);
     }
 
     body.liveTrackerActive #opponentStatButtons[hidden] {
@@ -3992,6 +4037,27 @@ p.betaNoticeText {
     }
 }
 
+/* iPad Split View (landscape, under 1024px wide): the larger cards keep
+   their three (or two) a row, and every row stretches across the blue
+   side instead of leaving the end of a short row empty. */
+@media (orientation: landscape) and (min-width: 700px) and (max-width: 1023px) and (min-height: 600px) {
+    body.liveTrackerActive .scorePanels .teamStatCardGrid {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    body.liveTrackerActive .scorePanels .teamStatCardGrid > .teamStatCard {
+        flex: 1 1 calc((100% - 28px) / 3 - 1px);
+        min-width: 0;
+    }
+}
+
+@media (orientation: landscape) and (min-width: 700px) and (max-width: 900px) and (min-height: 600px) {
+    body.liveTrackerActive .scorePanels .teamStatCardGrid > .teamStatCard {
+        flex-basis: calc((100% - 14px) / 2 - 1px);
+    }
+}
+
 /* iPad portrait: our tiles use the compact landscape style (name and count,
    then − and +) so both sides fit. */
 @media (orientation: portrait) and (min-width: 700px) and (min-height: 600px) {
@@ -3999,10 +4065,16 @@ p.betaNoticeText {
         grid-template-columns: minmax(0, 1fr) 368px;
     }
 
+    /* Tiles wrap at 140px wide; every row stretches across the full width. */
     body.liveTrackerActive .scorePanels #teamStatButtons {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         gap: 6px;
+    }
+
+    body.liveTrackerActive .scorePanels #teamStatButtons .teamStatCard {
+        flex: 1 1 140px;
+        min-width: 0;
     }
 
     body.liveTrackerActive .scorePanels .teamStatCardGrid {
@@ -4090,7 +4162,7 @@ p.betaNoticeText {
     }
 
     body.liveTrackerActive .scorePanels .transitionPointsCard {
-        grid-column: 1 / -1;
+        flex: 1 1 100%;
         border-radius: 10px;
         box-shadow: none;
     }

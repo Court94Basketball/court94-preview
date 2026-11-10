@@ -2710,6 +2710,8 @@ ${freeThrowCard}
     if (opponentContainer) {
         opponentContainer.innerHTML = opponentCards;
         opponentContainer.hidden = !opponentCards;
+        // How many red tiles, so they can share the red side's width.
+        opponentContainer.dataset.count = opponentStats.length;
     }
 
     // Lets the landscape team strip place the reminder above the tiles.
