@@ -6199,20 +6199,31 @@ function renderGameSummarySections(view, game, team, options = {}) {
     const isLive = view === "live";
     const ids = summaryViewIds[view];
     const periods = getSummaryPeriods(game, isLive);
+    // An older page (seen briefly while a new version installs) may not have
+    // every section; the sections it has are still filled in.
+    const scoring = document.getElementById(ids.scoring);
+    const comparison = document.getElementById(ids.comparison);
+    const players = document.getElementById(ids.players);
 
-    document.getElementById(ids.scoring).innerHTML = renderSummaryScoring(
-        game,
-        team,
-        isLive,
-        periods,
-        options.getEnteredScores ? options.getEnteredScores() : null
-    );
+    if (scoring) {
+        scoring.innerHTML = renderSummaryScoring(
+            game,
+            team,
+            isLive,
+            periods,
+            options.getEnteredScores ? options.getEnteredScores() : null
+        );
+    }
 
-    document.getElementById(ids.comparison).innerHTML =
-        renderSummaryComparison(game, team, isLive, view);
+    if (comparison) {
+        comparison.innerHTML =
+            renderSummaryComparison(game, team, isLive, view);
+    }
 
-    document.getElementById(ids.players).innerHTML =
-        renderSummaryPlayerTables(game, team, periods);
+    if (players) {
+        players.innerHTML =
+            renderSummaryPlayerTables(game, team, periods);
+    }
 
     summaryRedraw[view] = () =>
         renderGameSummarySections(view, game, team, options);
@@ -6548,6 +6559,12 @@ showLineupPlusMinusCard(
 function renderSummaryGameType(game) {
     const card = document.getElementById("summaryGameTypeCard");
     const select = document.getElementById("summaryGameType");
+
+    // An older page (seen briefly while a new version installs) has no Game
+    // Type card; the rest of the summary still opens.
+    if (!card || !select) {
+        return;
+    }
 
     card.hidden = !game;
 
@@ -9329,9 +9346,11 @@ document
     .getElementById("opponentUndoButton")
     .addEventListener("click", undoOpponentPoints);
 
+// Missing on an older page (seen briefly while a new version installs);
+// start-up must carry on so the game in progress still reopens.
 document
     .getElementById("summaryGameType")
-    .addEventListener("change", changeSummaryGameType);
+    ?.addEventListener("change", changeSummaryGameType);
 
 // The end-of-game score check updates as the opponent's score is typed.
 document
