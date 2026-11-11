@@ -6058,6 +6058,15 @@ function renderSummaryComparison(game, team, isLive, view) {
 
 // Player scoring by period, the box score and player shooting (the same
 // figures the summaries showed before).
+const boxScoreShortLabels = {
+    assists: "AST",
+    steals: "STL",
+    blocks: "BLK",
+    offensiveRebounds: "OREB",
+    defensiveRebounds: "DREB",
+    turnovers: "TO"
+};
+
 function renderSummaryPlayerTables(game, team, periods) {
     const playerStatTotal = (playerId, statKey) =>
         game.playerStatsById?.[playerId]?.[statKey] || 0;
@@ -6097,11 +6106,17 @@ function renderSummaryPlayerTables(game, team, periods) {
             0
         ) + (game.unknownShooterStats?.points || 0);
 
+    // On an iPad the long headings show as AST, OREB... (style.css); the
+    // full name stays in the page for screen readers and on phones.
     const headerCells = playerStatColumns
         .map((statKey) => {
             const stat = playerStats.find((item) => item.key === statKey);
+            const label = statKey === "points" ? "PTS" : stat?.name || statKey;
+            const short = boxScoreShortLabels[statKey];
 
-            return `<th>${statKey === "points" ? "PTS" : stat?.name || statKey}</th>`;
+            return short
+                ? `<th class="boxHeadShort" data-short="${short}"><span class="boxHeadFull">${label}</span></th>`
+                : `<th>${label}</th>`;
         })
         .join("");
 
@@ -6128,7 +6143,7 @@ function renderSummaryPlayerTables(game, team, periods) {
         <div class="boxScoreWrap">
             <h4>Player Scoring</h4>
 
-            <table class="boxScoreTable">
+            <table class="boxScoreTable summaryPlayerScoringTable">
                 <thead>
                     <tr>
                         <th>Player</th>
@@ -6153,7 +6168,7 @@ function renderSummaryPlayerTables(game, team, periods) {
         <div class="boxScoreWrap">
             <h4>Box Score</h4>
 
-            <table class="boxScoreTable">
+            <table class="boxScoreTable summaryBoxScoreTable">
                 <thead>
                     <tr>
                         <th>#</th>
@@ -8733,8 +8748,8 @@ function renderRecordSplit(officialGames) {
     const postseason = officialGames.filter((game) => getGameType(game) !== "Regular Season");
 
     return `
-        <small class="reportRecordSplit">Regular Season ${record(regular)}</small>
-        <small class="reportRecordSplit">Tournament/<wbr>Playoff ${record(postseason)}</small>
+        <small class="reportRecordSplit">Regular Season <span class="reportRecordValue">${record(regular)}</span></small>
+        <small class="reportRecordSplit">Tournament/<wbr>Playoff <span class="reportRecordValue">${record(postseason)}</span></small>
     `;
 }
 

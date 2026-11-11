@@ -4601,3 +4601,151 @@ p.betaNoticeText {
     font-size: 16px;
     font-weight: 800;
 }
+
+/* Records like 1-0 never break across lines. */
+.reportRecordValue,
+.reportStatValue {
+    white-space: nowrap;
+}
+
+/* SUMMARY AND REPORTS TYPOGRAPHY ON AN iPAD
+   Larger player names, numbers and totals on the live, end-of-game and saved
+   summaries and in Reports, and darker grey for notes. Phones (narrower than
+   700px) keep the sizes above. Game-by-Game Team Trends is unchanged. */
+@media (min-width: 700px) {
+    #gameSummaryScreen,
+    #summaryTrackerPanel,
+    #reportsScreen {
+        --muted: #4b5d70;
+    }
+
+    /* Summary tables: values 18px, headings 15px, totals 20px. */
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .boxScoreTable th {
+        padding: 10px 8px;
+        font-size: 15px;
+    }
+
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .boxScoreTable td {
+        padding: 10px 8px;
+        font-size: 18px;
+        font-weight: 800;
+    }
+
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .boxScoreTable td.playerNameCell {
+        text-align: left;
+    }
+
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryTotalsRow td {
+        font-size: 20px;
+        font-weight: 900;
+    }
+
+    /* The Box Score is 700px wide at least on a phone; on an iPad it fits the
+       screen (short headings below), so iPad mini doesn't scroll sideways. */
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryPlayerScoringTable,
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryBoxScoreTable {
+        min-width: 0;
+    }
+
+    /* Player Scoring: names on the left, quarters centred. */
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryPlayerScoringTable th:first-child,
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryPlayerScoringTable td:first-child {
+        text-align: left;
+    }
+
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryPlayerScoringTable th:nth-child(2),
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryPlayerScoringTable td:nth-child(2) {
+        text-align: center;
+    }
+
+    /* Box Score headings: AST, STL, BLK, OREB, DREB, TO. The full name stays
+       in the page (hidden from view) for screen readers. */
+    .boxHeadShort .boxHeadFull {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+
+    .boxHeadShort::after {
+        content: attr(data-short);
+        content: attr(data-short) / "";
+    }
+
+    /* Scoring by Quarter */
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryScoringTable td.summaryTeamNameCell {
+        font-size: 16px;
+    }
+
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryScoringTable td.summaryTrackedTotal {
+        font-size: 22px !important;
+    }
+
+    /* Team Comparison: values 22px; team names stay 18px; labels 16px. */
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryComparisonTable td.summaryUsCell,
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryComparisonTable td.summaryThemCell {
+        font-size: 22px;
+        font-weight: 900;
+    }
+
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryComparisonTable th.summaryUsCell,
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryComparisonTable th.summaryThemCell {
+        font-size: 18px;
+    }
+
+    :is(#gameSummaryScreen, #summaryTrackerPanel) .summaryComparisonTable td.summaryStatCell {
+        color: var(--muted);
+        font-size: 16px;
+        font-weight: 800;
+    }
+
+    /* Lineup tables (game and season) */
+    :is(#gameSummaryScreen, #summaryTrackerPanel, #reportsScreen) .boxScoreTable.lineupTable td {
+        font-size: 16px;
+    }
+
+    /* Notes and subtitle: darker grey, 15px (the subtitle keeps 16px). */
+    :is(#gameSummaryScreen, #summaryTrackerPanel, #reportsScreen) :is(.summaryNote, .reportOfficialNote, .lineupKey, .lineupNote, .seasonNote, .shootingCoverageNote, .reportPlayerPrompt) {
+        font-size: 15px;
+    }
+
+    #summaryMatchup,
+    #reportsScreen .reportPlayerPrompt,
+    #reportsScreen .seasonNote {
+        color: var(--muted);
+    }
+
+    /* Reports: player season stats, the chosen player's games and season
+       shooting at 18px; season points 20px; headings 14px. */
+    #reportsScreen :is(.seasonPlayerTable, .seasonShootingSection .reportPlayerTable, #reportPlayerGameContent .reportPlayerTable) th {
+        color: var(--muted);
+        font-size: 14px;
+    }
+
+    #reportsScreen :is(.seasonPlayerTable, .seasonShootingSection .reportPlayerTable, #reportPlayerGameContent .reportPlayerTable) td {
+        font-size: 18px;
+        font-weight: 700;
+    }
+
+    #reportsScreen .seasonPlayerTable td.seasonPlayerName {
+        font-size: 18px;
+        font-weight: 800;
+    }
+
+    #reportsScreen .seasonPlayerTable td.seasonPoints {
+        font-size: 20px;
+        font-weight: 900;
+    }
+
+    #reportsScreen .reportRecordSplit {
+        color: var(--muted);
+        font-size: 14px;
+    }
+
+    #reportsScreen :is(.reportAverageLabel, .reportStatLabel) {
+        color: var(--muted);
+        font-size: 15px;
+    }
+}
