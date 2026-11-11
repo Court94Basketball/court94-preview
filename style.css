@@ -4375,3 +4375,173 @@ p.betaNoticeText {
         white-space: nowrap;
     }
 }
+
+/* ---------- GAME SUMMARY: SCORING BY QUARTER, TEAM COMPARISON, PLAYERS ----------
+   Live Summary tab, end-of-game and saved-game summaries (script.js
+   renderGameSummarySections). */
+.liveSummaryTableWrap > h3 {
+    margin: 0 0 12px;
+}
+
+.boxScoreWrap > h4 {
+    margin: 0;
+    padding: 16px 18px 12px;
+    color: var(--navy-dark);
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.boxScoreWrap + .boxScoreWrap {
+    margin-top: 14px;
+}
+
+/* Small tables: no 700px minimum, so they fit a phone without sideways
+   scrolling. */
+.summaryScoringTable,
+.summaryComparisonTable {
+    min-width: 0;
+}
+
+.summaryScoringTable th,
+.summaryScoringTable td {
+    padding: 10px 8px;
+}
+
+/* The box score's second column is the player name (left-aligned); here it
+   is Q1 or the statistic, centred like the rest. */
+.summaryScoringTable th:nth-child(2),
+.summaryScoringTable td:nth-child(2),
+.summaryComparisonTable th:nth-child(2),
+.summaryComparisonTable td:nth-child(2) {
+    text-align: center;
+}
+
+.summaryTeamNameCell {
+    max-width: 180px;
+    overflow: hidden;
+    text-align: left !important;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.summaryScoringUs .summaryTeamNameCell {
+    color: var(--navy);
+}
+
+.summaryScoringThem .summaryTeamNameCell {
+    color: var(--danger);
+}
+
+.summaryTrackedTotal {
+    font-size: 18px !important;
+    font-weight: 900 !important;
+}
+
+/* Our values left, the statistic in the middle, the opponent's right. */
+.summaryComparisonTable {
+    table-layout: fixed;
+}
+
+.summaryComparisonTable .summaryUsCell,
+.summaryComparisonTable .summaryThemCell {
+    width: 32%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 18px;
+    font-weight: 900;
+}
+
+.summaryComparisonTable td.summaryUsCell {
+    color: var(--navy);
+}
+
+.summaryComparisonTable td.summaryThemCell {
+    color: var(--danger);
+}
+
+.summaryComparisonTable td.summaryStatCell {
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 800;
+}
+
+/* Game / Q1 ... OT: one row of buttons, at least 44px to tap. */
+.summaryPeriodPicker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.summaryPeriodButton {
+    min-width: 56px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 2px solid var(--navy);
+    border-radius: 10px;
+    background: white;
+    color: var(--navy);
+    font-size: 15px;
+    font-weight: 900;
+}
+
+.summaryPeriodButton.activeSummaryPeriod {
+    background: var(--navy);
+    color: white;
+}
+
+.summaryNote {
+    margin: 10px 2px 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* ---------- REPORTS: PAST GAMES ---------- */
+.reportPastGamesList {
+    display: grid;
+    gap: 8px;
+}
+
+.reportPastGame {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 52px;
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: white;
+    color: var(--navy-dark);
+    font-size: 16px;
+    font-weight: 800;
+    text-align: left;
+}
+
+.reportPastGameOpponent {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.reportPastGameMeta {
+    flex: 0 0 auto;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.reportPastGamesMore {
+    min-height: 44px;
+    margin-top: 10px;
+    padding: 0 16px;
+    border: 2px solid var(--navy);
+    border-radius: 10px;
+    background: white;
+    color: var(--navy);
+    font-weight: 900;
+}

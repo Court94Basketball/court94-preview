@@ -1450,6 +1450,7 @@ team.roster.forEach((player) => {
     // Every new game opens on TRACK, and the (hidden) Summary is rebuilt for
     // this game so nothing from the previous game can show.
     showTrackTab();
+    summaryPeriodChoice.live = "game";
     renderLiveSummary();
 
     // Save right away so the new game (and its coverage) survives a refresh
@@ -3240,7 +3241,7 @@ function renderPlayerShootingSection(game, team) {
                 <p class="shootingCoverageNote">
                     Individual shooting wasn't tracked in this game, so player
                     attempts and percentages aren't available. Team shooting
-                    totals are in Team Stats.
+                    totals are in Team Comparison.
                 </p>
             </div>
         `;
@@ -4164,6 +4165,15 @@ function renderOpponentScoring() {
 
     document.getElementById("opponentUndoButton").disabled =
         !liveActionHistory.some(isOpponentAction);
+
+    // The red buttons also show on the Summary tab: keep it current.
+    if (
+        document
+            .getElementById("summaryTrackerPanel")
+            ?.classList.contains("activeTrackerPanel")
+    ) {
+        renderLiveSummary();
+    }
 }
 
 // ---------- Lineup report ----------
@@ -5531,6 +5541,608 @@ function getGameStatKeys(game, team, selectionName) {
     ];
 }
 
+// ---------- Game Summary: live Summary tab, end-of-game and saved games ----------
+//
+// Every summary is built by the same functions, from the game passed in
+// (liveGameState or a saved game), so the live, end-of-game and saved views
+// always agree. Nothing here changes the game.
+//   Scoring by Quarter — tracked baskets per quarter (or half; OT when used).
+//                        "—" where scoring wasn't tracked, "*" where it was
+//                        tracked for only part of the period. The entered
+//                        final score stays the official result.
+//   Team Comparison    — our value | statistic | opponent value, for the
+//                        game or one quarter; "—" for a side that didn't
+//                        track that statistic, never a made-up 0.
+//   Player Statistics  — player scoring by quarter, box score, shooting.
+
+// The quarter the Team Comparison shows in each view: "game" every time a
+// summary opens, never saved.
+const summaryPeriodChoice = { live: "game", screen: "game" };
+
+// Draws a view again with the same game (after a quarter is chosen, or the
+// opponent's final score is typed).
+const summaryRedraw = { live: null, screen: null };
+
+const summaryViewIds = {
+    live: {
+        scoring: "liveSummaryScoring",
+        comparison: "liveSummaryTeamStats",
+        players: "liveSummaryPlayerStats"
+    },
+    screen: {
+        scoring: "summaryScoring",
+        comparison: "summaryTeamStats",
+        players: "summaryPlayerStats"
+    }
+};
+
+function escapeSummaryText(text) {
+    return String(text ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function getSummaryPeriodOrder(game) {
+    return game.gameFormat === "Halves"
+        ? ["1st Half", "2nd Half", "OT"]
+        : ["Q1", "Q2", "Q3", "Q4", "OT"];
+}
+
+// Anything recorded in a period: a stat, a basket or a shot.
+function hasPeriodData(game, period) {
+    const hasCount = (value) =>
+        value && typeof value === "object"
+            ? Object.values(value).some(hasCount)
+            : Number(value) > 0;
+
+    return (
+        hasCount(game.teamStatsByPeriod?.[period]) ||
+        hasCount(game.playerStatsByPeriod?.[period]) ||
+        hasCount(game.unknownShooterStatsByPeriod?.[period]) ||
+        (game.scoringLog?.events || []).some(
+            (event) => event.period === period && event.type !== "lineup"
+        )
+    );
+}
+
+// Quarters (or halves) always; OT when something was recorded in it, or a
+// game in progress is in it. All overtimes share one OT.
+function getSummaryPeriods(game, isLive) {
+    return getSummaryPeriodOrder(game).filter(
+        (period) =>
+            period !== "OT" ||
+            hasPeriodData(game, "OT") ||
+            (isLive && game.period === "OT")
+    );
+}
+
+// A period the game in progress hasn't reached yet.
+function isFutureSummaryPeriod(game, period, isLive) {
+    const order = getSummaryPeriodOrder(game);
+
+    return isLive && order.indexOf(period) > order.indexOf(game.period);
+}
+
+// Whether our points ("points") or the opponent's ("opponentScoring") were
+// tracked in a period: "full", "partial" (turned on or off during it) or
+// "none". scoringTracking holds the settings at the start of the game and
+// after every change, with the period of the change.
+function getPeriodScoringState(game, settingName, period) {
+    const order = getSummaryPeriodOrder(game);
+    const tracking = Array.isArray(game.scoringTracking)
+        ? game.scoringTracking
+        : [];
+    const index = order.indexOf(period);
+
+    // No record (older games, or a period before it was kept): our points
+    // count when player points were tracked; the opponent's were not.
+    if (tracking.length === 0 || index < order.indexOf(tracking[0].period)) {
+        return settingName === "points" &&
+            getTrackedPlayerStatKeys(game).has("points")
+            ? "full"
+            : "none";
+    }
+
+    const earlier = tracking.filter(
+        (entry, i) => i > 0 && order.indexOf(entry.period) < index
+    );
+    const start = earlier.length ? earlier[earlier.length - 1] : tracking[0];
+    const during = tracking.filter(
+        (entry, i) => i > 0 && order.indexOf(entry.period) === index
+    );
+    const states = [start, ...during].map((entry) =>
+        Boolean(entry[settingName])
+    );
+
+    if (states.every(Boolean)) {
+        return "full";
+    }
+
+    return states.some(Boolean) ? "partial" : "none";
+}
+
+function getPeriodTeamPoints(game, period) {
+    return (
+        Object.values(game.playerStatsByPeriod?.[period] || {}).reduce(
+            (sum, playerStats) => sum + (Number(playerStats?.points) || 0),
+            0
+        ) + getUnknownPeriodPoints(game, period)
+    );
+}
+
+function getPeriodOpponentPoints(game, period) {
+    return (game.scoringLog?.events || [])
+        .filter((event) => event.type === "against" && event.period === period)
+        .reduce((sum, event) => sum + (event.points || 0), 0);
+}
+
+// One scoring cell: the points; "—" when not tracked; "*" when tracked for
+// only part of the period (or recorded while tracking was off); blank for a
+// period not reached yet.
+function getScoringCell(points, state, isFuture) {
+    if (isFuture) {
+        return { text: "", tracked: false, partial: false };
+    }
+
+    if (state === "none" && points === 0) {
+        return { text: "—", tracked: false, partial: false };
+    }
+
+    if (state === "full") {
+        return { text: String(points), tracked: true, partial: false };
+    }
+
+    return { text: `${points}*`, tracked: true, partial: true };
+}
+
+// A team's row in Scoring by Quarter, and its Tracked Total ("*" when some
+// played period wasn't fully tracked; "—" when none was).
+function getScoringRow(game, periods, isLive, settingName, getPoints, total) {
+    const played = periods.filter(
+        (period) => !isFutureSummaryPeriod(game, period, isLive)
+    );
+    const cells = periods.map((period) =>
+        getScoringCell(
+            getPoints(game, period),
+            getPeriodScoringState(game, settingName, period),
+            isFutureSummaryPeriod(game, period, isLive)
+        )
+    );
+    const playedCells = cells.slice(0, played.length);
+    const anyTracked = playedCells.some((cell) => cell.tracked);
+    const complete = playedCells.every(
+        (cell) => cell.tracked && !cell.partial
+    );
+
+    return {
+        cells,
+        anyTracked,
+        total: !anyTracked ? "—" : complete ? String(total) : `${total}*`
+    };
+}
+
+function renderSummaryScoring(game, team, isLive, periods, entered) {
+    const opponentName = game.opponent || "Opponent";
+    const trackedTeam = getRecordedTeamPoints(game);
+    const trackedOpponent = getTrackedOpponentPoints(game);
+    const ours = getScoringRow(
+        game, periods, isLive, "points", getPeriodTeamPoints, trackedTeam
+    );
+    const theirs = getScoringRow(
+        game, periods, isLive, "opponentScoring", getPeriodOpponentPoints,
+        trackedOpponent
+    );
+    const notes = [];
+
+    if ([...ours.cells, ...theirs.cells].some((cell) => cell.partial)) {
+        notes.push(
+            "* Scoring was tracked for only part of that period, so it may not include every basket."
+        );
+    }
+
+    if (!ours.anyTracked) {
+        notes.push(
+            "Player points weren't tracked, so your team's points by quarter aren't available."
+        );
+    }
+
+    if (!theirs.anyTracked) {
+        notes.push(
+            isLive
+                ? "Opponent Scoring is off, so the opponent's points aren't being tracked."
+                : "Opponent scoring wasn't tracked, so the opponent's points by quarter aren't available."
+        );
+    }
+
+    // The entered final score is the official result; say so when the
+    // tracked baskets add up to something else.
+    if (entered && entered.team !== null && entered.opponent !== null) {
+        const teamDiffers =
+            ours.anyTracked && entered.team !== trackedTeam;
+        const opponentDiffers =
+            theirs.anyTracked && entered.opponent !== trackedOpponent;
+
+        if (teamDiffers || opponentDiffers) {
+            notes.push(
+                `Final score entered: ${escapeSummaryText(team.teamName)} ${entered.team}, ` +
+                `${escapeSummaryText(opponentName)} ${entered.opponent}. This is the official result. ` +
+                `The Tracked Total only adds up baskets tracked during the game ` +
+                `(${ours.anyTracked ? trackedTeam : "—"}–${theirs.anyTracked ? trackedOpponent : "—"}).`
+            );
+        }
+    }
+
+    const row = (name, scoring, rowClass) => `
+        <tr class="${rowClass}">
+            <td class="summaryTeamNameCell" title="${escapeSummaryText(name)}">${escapeSummaryText(name)}</td>
+            ${scoring.cells.map((cell) => `<td>${cell.text}</td>`).join("")}
+            <td class="summaryTrackedTotal">${scoring.total}</td>
+        </tr>
+    `;
+
+    return `
+        <h3>Scoring by ${game.gameFormat === "Halves" ? "Half" : "Quarter"}</h3>
+
+        <div class="boxScoreWrap">
+            <table class="boxScoreTable summaryScoringTable">
+                <thead>
+                    <tr>
+                        <th>Team</th>
+                        ${periods.map((period) => `<th>${period}</th>`).join("")}
+                        <th>Tracked Total</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${row(team.teamName, ours, "summaryScoringUs")}
+                    ${row(opponentName, theirs, "summaryScoringThem")}
+                </tbody>
+            </table>
+        </div>
+
+        ${notes.map((note) => `<p class="summaryNote">${note}</p>`).join("")}
+    `;
+}
+
+// "made/attempted (percent%)" for the comparison table.
+function formatShootingText(statValue) {
+    const made = Number(statValue?.made) || 0;
+    const attempted = Number(statValue?.attempted) || 0;
+
+    return `${made}/${attempted} (${
+        attempted > 0 ? Math.round((made / attempted) * 100) : 0
+    }%)`;
+}
+
+const summaryComparisonPairs = [
+    { label: "Offensive Rebounds", ours: "offensiveRebounds", theirs: "opponentOffensiveRebounds", ourCount: true },
+    { label: "Defensive Rebounds", ours: "defensiveRebounds", theirs: "opponentDefensiveRebounds", ourCount: true },
+    { label: "Turnovers", ours: "turnovers", theirs: "forcedTurnovers", ourCount: true },
+    { label: "Steals", ours: "steals", theirs: "opponentSteals" },
+    { label: "Assists", ours: "assists", theirs: "opponentAssists" },
+    { label: "Blocks", ours: "blocks", theirs: "opponentBlocks" }
+];
+
+const summaryComparisonLabels = {
+    fieldGoals: "Field Goals",
+    threePointers: "3-Pointers",
+    freeThrows: "Free Throws"
+};
+
+// Team Comparison rows for the game ("game") or one period. Our rebounds and
+// turnovers are the team count, which already includes every player's (a
+// player's tap adds to it), so player totals are never added on top.
+// Steals, assists and blocks are the players' totals.
+function getSummaryComparisonRows(game, period, isLive) {
+    const isGame = period === "game";
+    const teamTracked = new Set(getTrackedTeamStatKeys(game));
+    const playerTracked = getTrackedPlayerStatKeys(game);
+    const teamValue = (key) =>
+        isGame
+            ? game.teamStats?.[key]
+            : game.teamStatsByPeriod?.[period]?.[key];
+    const playerTotal = (key) =>
+        Object.values(
+            (isGame ? game.playerStatsById : game.playerStatsByPeriod?.[period]) || {}
+        ).reduce((sum, playerStats) => sum + (Number(playerStats?.[key]) || 0), 0);
+    const rows = [];
+    const add = (label, oursTracked, oursValue, theirsTracked, theirsValue) => {
+        if (oursTracked || theirsTracked) {
+            rows.push({
+                label,
+                ours: oursTracked ? String(oursValue) : "—",
+                theirs: theirsTracked ? String(theirsValue) : "—"
+            });
+        }
+    };
+
+    // Points: the same figures (and marks) as Scoring by Quarter.
+    const periods = getSummaryPeriods(game, isLive);
+    const points = (settingName, getPoints, total) =>
+        isGame
+            ? getScoringRow(game, periods, isLive, settingName, getPoints, total).total
+            : getScoringCell(
+                  getPoints(game, period),
+                  getPeriodScoringState(game, settingName, period),
+                  false
+              ).text;
+    const ourPoints = points("points", getPeriodTeamPoints, getRecordedTeamPoints(game));
+    const theirPoints = points(
+        "opponentScoring", getPeriodOpponentPoints, getTrackedOpponentPoints(game)
+    );
+
+    if (ourPoints !== "—" || theirPoints !== "—") {
+        rows.push({ label: "Points", ours: ourPoints, theirs: theirPoints });
+    }
+
+    summaryComparisonPairs.forEach((pair) => {
+        const oursTracked = pair.ourCount
+            ? teamTracked.has(pair.ours) || playerTracked.has(pair.ours)
+            : playerTracked.has(pair.ours);
+        const ourCount = teamValue(pair.ours);
+        const oursValue = pair.ourCount && ourCount !== undefined
+            ? Number(ourCount) || 0
+            : playerTotal(pair.ours);
+
+        add(
+            pair.label,
+            oursTracked,
+            oursValue,
+            teamTracked.has(pair.theirs),
+            Number(teamValue(pair.theirs)) || 0
+        );
+    });
+
+    // Our other team statistics (no opponent equivalent), shooting last.
+    const handled = new Set(
+        summaryComparisonPairs.flatMap((pair) => [pair.ours, pair.theirs])
+    );
+    const shooting = ["fieldGoals", "threePointers", "freeThrows"];
+    const others = teamStats.filter(
+        (stat) =>
+            !handled.has(stat.key) &&
+            stat.side !== "opponent" &&
+            !shooting.includes(stat.key)
+    );
+
+    [...others, ...shooting.map((key) => teamStats.find((stat) => stat.key === key))]
+        .filter(Boolean)
+        .forEach((stat) => {
+            add(
+                summaryComparisonLabels[stat.key] || stat.name,
+                teamTracked.has(stat.key),
+                shooting.includes(stat.key)
+                    ? formatShootingText(teamValue(stat.key))
+                    : Number(teamValue(stat.key)) || 0,
+                false,
+                0
+            );
+        });
+
+    return rows;
+}
+
+function renderSummaryComparison(game, team, isLive, view) {
+    const order = getSummaryPeriodOrder(game);
+    const choices = [
+        "game",
+        ...getSummaryPeriods(game, isLive).filter(
+            (period) => !isFutureSummaryPeriod(game, period, isLive)
+        )
+    ];
+
+    if (!choices.includes(summaryPeriodChoice[view])) {
+        summaryPeriodChoice[view] = "game";
+    }
+
+    const period = summaryPeriodChoice[view];
+    const rows = getSummaryComparisonRows(game, period, isLive);
+    const opponentName = game.opponent || "Opponent";
+    const marks = rows.flatMap((row) => [row.ours, row.theirs]);
+
+    return `
+        <div class="summaryPeriodPicker" role="group" aria-label="Show statistics for">
+            ${choices
+                .map(
+                    (choice) => `
+                        <button
+                            type="button"
+                            class="summaryPeriodButton${choice === period ? " activeSummaryPeriod" : ""}"
+                            data-summary-view="${view}"
+                            data-summary-period="${choice}"
+                            aria-pressed="${choice === period}"
+                        >${choice === "game" ? "Game" : choice}</button>
+                    `
+                )
+                .join("")}
+        </div>
+
+        ${
+            rows.length
+                ? `
+                    <div class="boxScoreWrap">
+                        <table class="boxScoreTable summaryComparisonTable">
+                            <thead>
+                                <tr>
+                                    <th class="summaryUsCell" title="${escapeSummaryText(team.teamName)}">${escapeSummaryText(team.teamName)}</th>
+                                    <th class="summaryStatCell">${period === "game" ? "Game" : period}</th>
+                                    <th class="summaryThemCell" title="${escapeSummaryText(opponentName)}">${escapeSummaryText(opponentName)}</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                ${rows
+                                    .map(
+                                        (row) => `
+                                            <tr>
+                                                <td class="summaryUsCell">${row.ours}</td>
+                                                <td class="summaryStatCell">${row.label}</td>
+                                                <td class="summaryThemCell">${row.theirs}</td>
+                                            </tr>
+                                        `
+                                    )
+                                    .join("")}
+                            </tbody>
+                        </table>
+                    </div>
+                `
+                : `<p class="summaryNote">No team statistics were tracked.</p>`
+        }
+
+        ${marks.includes("—") ? `<p class="summaryNote">— means not tracked.</p>` : ""}
+        ${marks.some((mark) => mark.endsWith("*")) ? `<p class="summaryNote">* Scoring was tracked for only part of the ${period === "game" ? "game" : "period"}.</p>` : ""}
+    `;
+}
+
+// Player scoring by period, the box score and player shooting (the same
+// figures the summaries showed before).
+function renderSummaryPlayerTables(game, team, periods) {
+    const playerStatTotal = (playerId, statKey) =>
+        game.playerStatsById?.[playerId]?.[statKey] || 0;
+    const playerStatColumns = [
+        "points",
+        ...getGameStatKeys(game, team, "selectedPlayerStats").filter(
+            (statKey) => isPlayerCounterStat(statKey)
+        )
+    ];
+
+    const scoringRows = team.roster
+        .map((player) => `
+            <tr>
+                <td class="playerNameCell">${player.name || "Unnamed"}</td>
+                ${periods
+                    .map(
+                        (period) => `<td>${game.playerStatsByPeriod?.[period]?.[player.id]?.points || 0}</td>`
+                    )
+                    .join("")}
+                <td>${playerStatTotal(player.id, "points")}</td>
+            </tr>
+        `)
+        .join("");
+
+    const scoringTotals = periods.map(
+        (period) =>
+            team.roster.reduce(
+                (total, player) =>
+                    total + (game.playerStatsByPeriod?.[period]?.[player.id]?.points || 0),
+                0
+            ) + getUnknownPeriodPoints(game, period)
+    );
+
+    const scoringGameTotal =
+        team.roster.reduce(
+            (total, player) => total + playerStatTotal(player.id, "points"),
+            0
+        ) + (game.unknownShooterStats?.points || 0);
+
+    const headerCells = playerStatColumns
+        .map((statKey) => {
+            const stat = playerStats.find((item) => item.key === statKey);
+
+            return `<th>${statKey === "points" ? "PTS" : stat?.name || statKey}</th>`;
+        })
+        .join("");
+
+    const statRows = team.roster
+        .map((player) => `
+            <tr>
+                <td>${player.number || "—"}</td>
+                <td class="playerNameCell">${player.name || "Unnamed"}</td>
+                ${playerStatColumns
+                    .map((statKey) => `<td>${playerStatTotal(player.id, statKey)}</td>`)
+                    .join("")}
+            </tr>
+        `)
+        .join("");
+
+    const statTotals = playerStatColumns.map((statKey) =>
+        team.roster.reduce(
+            (total, player) => total + playerStatTotal(player.id, statKey),
+            0
+        )
+    );
+
+    return `
+        <div class="boxScoreWrap">
+            <h4>Player Scoring</h4>
+
+            <table class="boxScoreTable">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        ${periods.map((period) => `<th>${period}</th>`).join("")}
+                        <th>Total</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${scoringRows}
+                    ${renderUnknownScoringRow(game, periods)}
+
+                    <tr class="summaryTotalsRow">
+                        <td>Totals</td>
+                        ${scoringTotals.map((total) => `<td>${total}</td>`).join("")}
+                        <td>${scoringGameTotal}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="boxScoreWrap">
+            <h4>Box Score</h4>
+
+            <table class="boxScoreTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Player</th>
+                        ${headerCells}
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${statRows}
+
+                    <tr class="summaryTotalsRow">
+                        <td></td>
+                        <td>Totals</td>
+                        ${statTotals.map((total) => `<td>${total}</td>`).join("")}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        ${renderPlayerShootingSection(game, team)}
+    `;
+}
+
+// Fills one summary view (live Summary tab, or the summary screen) from a
+// game. options.getEnteredScores: the entered final score, when there is one.
+function renderGameSummarySections(view, game, team, options = {}) {
+    const isLive = view === "live";
+    const ids = summaryViewIds[view];
+    const periods = getSummaryPeriods(game, isLive);
+
+    document.getElementById(ids.scoring).innerHTML = renderSummaryScoring(
+        game,
+        team,
+        isLive,
+        periods,
+        options.getEnteredScores ? options.getEnteredScores() : null
+    );
+
+    document.getElementById(ids.comparison).innerHTML =
+        renderSummaryComparison(game, team, isLive, view);
+
+    document.getElementById(ids.players).innerHTML =
+        renderSummaryPlayerTables(game, team, periods);
+
+    summaryRedraw[view] = () =>
+        renderGameSummarySections(view, game, team, options);
+}
+
 function renderLiveSummary() {
     const team = getSelectedTeam();
 
@@ -5538,313 +6150,7 @@ function renderLiveSummary() {
         return;
     }
 
-    const uniqueTeamStats =
-        getGameStatKeys(liveGameState, team, "selectedTeamStats");
-
-    const uniquePlayerStats =
-        getGameStatKeys(liveGameState, team, "selectedPlayerStats");
-
-    const periodColumns =
-    currentGameSetup.gameFormat === "Halves"
-        ? ["1st Half", "2nd Half", "OT"]
-        : ["Q1", "Q2", "Q3", "Q4", "OT"];
-
-        const orderedTeamStats = [
-    ...uniqueTeamStats.filter(
-        (statKey) =>
-            statKey !== "fieldGoals" &&
-            statKey !== "threePointers" &&
-            statKey !== "freeThrows"
-    ),
-    ...uniqueTeamStats.filter(
-        (statKey) =>
-            statKey === "fieldGoals" ||
-            statKey === "threePointers" ||
-            statKey === "freeThrows"
-    )
-];
-    const teamRows =
-        orderedTeamStats
-    .map((statKey) => {
-                const stat = teamStats.find(
-                    (item) => item.key === statKey
-                );
-
-                if (!stat) {
-                    return "";
-                }
-
-                return `
-                    <tr>
-                        <td class="teamStatNameCell">
-                            ${stat.name}
-                        </td>
-
-                        ${periodColumns
-    .map((period) => {
-        const periodValue =
-            liveGameState.teamStatsByPeriod?.[
-                period
-            ]?.[statKey] || 0;
-            const displayPeriodValue =
-    statKey === "fieldGoals" ||
-    statKey === "threePointers" ||
-    statKey === "freeThrows"
-        ? formatShootingStat(periodValue)
-        : periodValue;
-
-        return `
-            <td>
-                ${displayPeriodValue}
-            </td>
-        `;
-    })
-    .join("")}
-
-<td>
-    ${getTeamStatTotal(statKey)}
-</td>
-                    </tr>
-                `;
-            })
-            .join("");
-
-    document.getElementById(
-        "liveSummaryTeamStats"
-    ).innerHTML = `
-        <div class="boxScoreWrap">
-            <table class="boxScoreTable teamSummaryTable">
-                <thead>
-    <tr>
-        <th>Stat</th>
-
-        ${periodColumns
-            .map((period) => {
-                return `
-                    <th>
-                        ${period}
-                    </th>
-                `;
-            })
-            .join("")}
-
-        <th>Total</th>
-    </tr>
-</thead>
-
-                <tbody>
-                    ${teamRows}
-                </tbody>
-            </table>
-        </div>
-    `;
-
-    const playerStatColumns = [
-        "points",
-        ...uniquePlayerStats.filter(
-            (statKey) => isPlayerCounterStat(statKey)
-        )
-    ];
-
-    const playerHeaderCells =
-        playerStatColumns
-            .map((statKey) => {
-                const stat = playerStats.find(
-                    (item) => item.key === statKey
-                );
-
-                return `
-                    <th>
-                        ${
-                            statKey === "points"
-                                ? "PTS"
-                                : stat?.name || statKey
-                        }
-                    </th>
-                `;
-            })
-            .join("");
-
-    const playerRows =
-        team.roster
-            .map((player) => {
-                const statCells =
-                    playerStatColumns
-                        .map((statKey) => {
-                            return `
-                                <td>
-                                    ${getPlayerStatTotal(
-    player.id,
-    statKey
-)}
-                                </td>
-                            `;
-                        })
-                        .join("");
-
-                return `
-                    <tr>
-                        <td>
-                            ${player.number || "—"}
-                        </td>
-
-                        <td class="playerNameCell">
-                            ${player.name || "Unnamed"}
-                        </td>
-
-                        ${statCells}
-                    </tr>
-                `;
-            })
-            .join("");
-
-            const playerScoringTotals = periodColumns.map((period) => {
-    return team.roster.reduce((total, player) => {
-        const playerPeriodStats =
-            liveGameState.playerStatsByPeriod?.[
-                period
-            ]?.[player.id];
-
-        return total + (playerPeriodStats?.points || 0);
-    }, 0) + getUnknownPeriodPoints(liveGameState, period);
-});
-
-const playerGameTotal =
-    team.roster.reduce((total, player) => {
-        return total + getPlayerStatTotal(
-            player.id,
-            "points"
-        );
-    }, 0) + getUnknownShooterPoints();
-
-          const playerScoringRows =
-    team.roster
-        .map((player) => {
-            const periodCells =
-                periodColumns
-                    .map((period) => {
-                        const playerPeriodStats =
-                            liveGameState.playerStatsByPeriod?.[
-                                period
-                            ]?.[player.id];
-
-                        const points =
-                            playerPeriodStats?.points || 0;
-
-                        return `
-                            <td>
-                                ${points}
-                            </td>
-                        `;
-                    })
-                    .join("");
-
-            return `
-                <tr>
-                    <td class="playerNameCell">
-                        ${player.name || "Unnamed"}
-                    </td>
-
-                    ${periodCells}
-
-                    <td>
-                        ${getPlayerStatTotal(
-                            player.id,
-                            "points"
-                        )}
-                    </td>
-                </tr>
-            `;
-        })
-        .join("");
-
-        const playerStatTotals = playerStatColumns.map((statKey) => {
-    return team.roster.reduce((total, player) => {
-        return total + getPlayerStatTotal(
-            player.id,
-            statKey
-        );
-    }, 0);
-});
-
-          
-    document.getElementById(
-    "liveSummaryPlayerStats"
-).innerHTML = `
-    <div class="boxScoreWrap">
-        <h3>Player Scoring</h3>
-
-        <table class="boxScoreTable">
-            <thead>
-                <tr>
-                    <th>Player</th>
-
-                    ${periodColumns
-                        .map((period) => {
-                            return `
-                                <th>${period}</th>
-                            `;
-                        })
-                        .join("")}
-
-                    <th>Total</th>
-                </tr>
-            </thead>
-
-       <tbody>
-    ${playerScoringRows}
-    ${renderUnknownScoringRow(liveGameState, periodColumns)}
-
-    <tr class="summaryTotalsRow">
-        <td>Totals</td>
-
-        ${playerScoringTotals
-            .map((total) => {
-                return `
-                    <td>${total}</td>
-                `;
-            })
-            .join("")}
-
-        <td>${playerGameTotal}</td>
-    </tr>
-</tbody>
-        </table>
-    </div>
-
-    <div class="boxScoreWrap">
-        <h3>Player Stats</h3>
-
-        <table class="boxScoreTable">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Player</th>
-                    ${playerHeaderCells}
-                </tr>
-            </thead>
-
-            <tbody>
-    ${playerRows}
-
-    <tr class="summaryTotalsRow">
-        <td></td>
-        <td>Totals</td>
-
-        ${playerStatTotals
-            .map((total) => {
-                return `
-                    <td>${total}</td>
-                `;
-            })
-            .join("")}
-    </tr>
-</tbody>
-        </table>
-    </div>
-
-    ${renderPlayerShootingSection(liveGameState, team)}
-`;
+    renderGameSummarySections("live", liveGameState, team);
 
     showLineupPlusMinusCard(
         "liveSummaryLineupCard",
@@ -5872,152 +6178,6 @@ function openGameSummary() {
     document.getElementById("summaryMatchup").textContent =
         `${team.teamName} vs ${liveGameState.opponent}`;
 
-    const uniqueTeamStats =
-        getGameStatKeys(liveGameState, team, "selectedTeamStats");
-
-  const teamStatRows =
-    uniqueTeamStats
-        .map((statKey) => {
-            const stat = teamStats.find(
-                (item) => item.key === statKey
-            );
-
-            if (!stat) {
-                return "";
-            }
-
-            return `
-                <tr>
-                    <td class="teamStatNameCell">
-                        ${stat.name}
-                    </td>
-                    <td>
-                        ${getTeamStatTotal(statKey)}
-                    </td>
-                </tr>
-            `;
-        })
-        .join("");
-
-document.getElementById("summaryTeamStats").innerHTML = `
-    <div class="boxScoreWrap">
-        <table class="boxScoreTable teamSummaryTable">
-            <thead>
-                <tr>
-                    <th>Stat</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${teamStatRows}
-            </tbody>
-        </table>
-    </div>
-`;
-const uniquePlayerStats =
-    getGameStatKeys(liveGameState, team, "selectedPlayerStats");
-    const playerStatColumns = [
-    "points",
-    ...uniquePlayerStats.filter(
-        (statKey) => isPlayerCounterStat(statKey)
-    )
-];
-
-const playerHeaderCells =
-    playerStatColumns
-        .map((statKey) => {
-            const stat = playerStats.find(
-                (item) => item.key === statKey
-            );
-
-            return `
-                <th>
-                    ${
-                        statKey === "points"
-                            ? "PTS"
-                            : stat?.name || statKey
-                    }
-                </th>
-            `;
-        })
-        .join("");
-
-const playerRows =
-    team.roster
-        .map((player) => {
-            const statCells =
-                playerStatColumns
-                    .map((statKey) => {
-                        return `
-                           <td>
-    ${getPlayerStatTotal(
-        player.id,
-        statKey
-    )}
-</td>
-                        `;
-                    })
-                    .join("");
-
-            return `
-                <tr>
-                    <td>
-                        ${player.number || "—"}
-                    </td>
-
-                    <td class="playerNameCell">
-                        ${player.name || "Unnamed"}
-                    </td>
-
-                    ${statCells}
-                </tr>
-            `;
-        })
-        .join("");
-
-             const playerStatTotals = playerStatColumns.map((statKey) => {
-    return team.roster.reduce((total, player) => {
-        return total + getPlayerStatTotal(
-            player.id,
-            statKey
-        );
-    }, 0);
-});
-
-document.getElementById(
-    "summaryPlayerStats"
-).innerHTML = `
-    <div class="boxScoreWrap">
-        <table class="boxScoreTable">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Player</th>
-                    ${playerHeaderCells}
-                </tr>
-            </thead>
-
-            <tbody>
-    ${playerRows}
-
-    <tr class="summaryTotalsRow">
-        <td></td>
-        <td>Totals</td>
-
-        ${playerStatTotals
-            .map((total) => {
-                return `
-                    <td>${total}</td>
-                `;
-            })
-            .join("")}
-    </tr>
-</tbody>
-        </table>
-    </div>
-
-    ${renderPlayerShootingSection(liveGameState, team)}
-`;
 document.getElementById(
     "returnToLiveGameButton"
 ).textContent = "Back to Game";
@@ -6041,6 +6201,16 @@ document.getElementById(
         : "";
 
 applySummaryScoreCorrections(team);
+
+// Scoring by Quarter, Team Comparison and Player Statistics (shared with
+// the live Summary and saved games). The entered final score is official.
+summaryPeriodChoice.screen = "game";
+renderGameSummarySections("screen", liveGameState, team, {
+    getEnteredScores: () => ({
+        team: Number(document.getElementById("summaryTeamScore").value) || 0,
+        opponent: getEnteredOpponentScore()
+    })
+});
 
 // The saved game's ID is fixed now, so a save that was interrupted and
 // tried again can never add the same game twice. summaryOpen lets a reload
@@ -6230,7 +6400,18 @@ function getFinalScore(inputId, trackedScore, label) {
     return null;
 }
 
-function openSavedGameSummary(gameId) {
+// A saved final score, or null when none was entered.
+function getEnteredSavedScore(value) {
+    return value === "" || value === null || value === undefined
+        ? null
+        : Number(value) || 0;
+}
+
+// Where a saved game's summary was opened from: "team" (Team Details and
+// Games) or "reports" (Reports > Past Games), so Back returns there.
+let savedSummaryOrigin = "team";
+
+function openSavedGameSummary(gameId, origin = "team") {
     const game = savedGames.find(
         (savedGame) =>
     String(savedGame.id) === String(gameId)
@@ -6244,6 +6425,7 @@ function openSavedGameSummary(gameId) {
         return;
     }
     viewingSavedGame = true;
+    savedSummaryOrigin = origin;
     document.getElementById("summaryScoreNote").hidden = true;
 
     document.getElementById("summaryMatchup").textContent =
@@ -6255,345 +6437,19 @@ function openSavedGameSummary(gameId) {
     document.getElementById("summaryOpponentScore").value =
         game.opponentScore;
 
-    const uniqueTeamStats =
-        getGameStatKeys(game, team, "selectedTeamStats");
-
-    const periodColumns =
-    game.gameFormat === "Halves"
-        ? ["1st Half", "2nd Half", "OT"]
-        : ["Q1", "Q2", "Q3", "Q4", "OT"];
-    const orderedTeamStats = [
-    ...uniqueTeamStats.filter(
-        (statKey) =>
-            statKey !== "fieldGoals" &&
-            statKey !== "threePointers" &&
-            statKey !== "freeThrows"
-    ),
-    ...uniqueTeamStats.filter(
-        (statKey) =>
-            statKey === "fieldGoals" ||
-            statKey === "threePointers" ||
-            statKey === "freeThrows"
-    )
-];
-
-const teamStatRows =
-    orderedTeamStats
-        .map((statKey) => {
-            const stat = teamStats.find(
-                (item) => item.key === statKey
-            );
-
-            if (!stat) {
-                return "";
-            }
-
-            return `
-                <tr>
-                    <td class="teamStatNameCell">
-                        ${stat.name}
-                    </td>
-
-                    ${periodColumns
-    .map((period) => {
-        const periodValue =
-    game.teamStatsByPeriod?.[
-        period
-    ]?.[statKey] || 0;
-
-const displayPeriodValue =
-    statKey === "fieldGoals" ||
-statKey === "threePointers" ||
-statKey === "freeThrows"
-        ? `${periodValue?.made || 0} / ${periodValue?.attempted || 0} - ${
-            (periodValue?.attempted || 0) > 0
-                ? Math.round(
-                    ((periodValue?.made || 0) /
-                        periodValue.attempted) *
-                        100
-                )
-                : 0
-          }%`
-        : periodValue;
-
-return `
-    <td>
-        ${displayPeriodValue}
-    </td>
-`;
-    })
-    .join("")}
-
-<td>
-    ${
-        statKey === "fieldGoals" ||
-statKey === "threePointers" ||
-statKey === "freeThrows"    
-            ? `${game.teamStats?.[statKey]?.made || 0} / ${
-                game.teamStats?.[statKey]?.attempted || 0
-              } - ${
-                (game.teamStats?.[statKey]?.attempted || 0) > 0
-                    ? Math.round(
-                        ((game.teamStats?.[statKey]?.made || 0) /
-                            game.teamStats[statKey].attempted) *
-                            100
-                      )
-                    : 0
-              }%`
-            : game.teamStats?.[statKey] || 0
-    }
-</td>
-                </tr>
-            `;
+    // Scoring by Quarter, Team Comparison and Player Statistics, shared with
+    // the live and end-of-game summaries. The saved final score is official.
+    summaryPeriodChoice.screen = "game";
+    renderGameSummarySections("screen", game, team, {
+        getEnteredScores: () => ({
+            team: getEnteredSavedScore(game.teamScore),
+            opponent: getEnteredSavedScore(game.opponentScore)
         })
-        .join("");
-
-document.getElementById(
-    "summaryTeamStats"
-).innerHTML = `
-    <div class="boxScoreWrap">
-        <table class="boxScoreTable teamSummaryTable">
-            <thead>
-    <tr>
-        <th>Stat</th>
-
-        ${periodColumns
-            .map((period) => {
-                return `
-                    <th>
-                        ${period}
-                    </th>
-                `;
-            })
-            .join("")}
-
-        <th>Total</th>
-    </tr>
-</thead>
-
-            <tbody>
-                ${teamStatRows}
-            </tbody>
-        </table>
-    </div>
-`;
-
-    const uniquePlayerStats =
-        getGameStatKeys(game, team, "selectedPlayerStats");
-
-   const savedPlayerStatColumns = [
-    "points",
-    ...uniquePlayerStats.filter(
-        (statKey) => isPlayerCounterStat(statKey)
-    )
-];
-
-const savedPlayerHeaderCells =
-    savedPlayerStatColumns
-        .map((statKey) => {
-            const stat = playerStats.find(
-                (item) => item.key === statKey
-            );
-
-            return `
-                <th>
-                    ${
-                        statKey === "points"
-                            ? "PTS"
-                            : stat?.name || statKey
-                    }
-                </th>
-            `;
-        })
-        .join("");
-
-const savedPlayerScoringRows =
-    team.roster
-        .map((player) => {
-            const periodCells =
-                periodColumns
-                    .map((period) => {
-                        const points =
-                            game.playerStatsByPeriod?.[
-                                period
-                            ]?.[player.id]?.points || 0;
-
-                        return `
-                            <td>${points}</td>
-                        `;
-                    })
-                    .join("");
-
-            return `
-                <tr>
-                    <td class="playerNameCell">
-                        ${player.name || "Unnamed"}
-                    </td>
-
-                    ${periodCells}
-
-                    <td>
-                        ${
-                            game.playerStatsById?.[
-                                player.id
-                            ]?.points || 0
-                        }
-                    </td>
-                </tr>
-            `;
-        })
-        .join("");
-
-const savedScoringTotals =
-    periodColumns.map((period) => {
-        return team.roster.reduce(
-            (total, player) => {
-                return total + (
-                    game.playerStatsByPeriod?.[
-                        period
-                    ]?.[player.id]?.points || 0
-                );
-            },
-            0
-        ) + getUnknownPeriodPoints(game, period);
     });
 
-const savedGamePointsTotal =
-    team.roster.reduce((total, player) => {
-        return total + (
-            game.playerStatsById?.[
-                player.id
-            ]?.points || 0
-        );
-    }, 0) + (game.unknownShooterStats?.points || 0);
-
-const savedPlayerRows =
-    team.roster
-        .map((player) => {
-            const statCells =
-                savedPlayerStatColumns
-                    .map((statKey) => {
-                        const total =
-                            game.playerStatsById?.[
-                                player.id
-                            ]?.[statKey] || 0;
-
-                        return `
-                            <td>${total}</td>
-                        `;
-                    })
-                    .join("");
-
-            return `
-                <tr>
-                    <td>
-                        ${player.number || "—"}
-                    </td>
-
-                    <td class="playerNameCell">
-                        ${player.name || "Unnamed"}
-                    </td>
-
-                    ${statCells}
-                </tr>
-            `;
-        })
-        .join("");
-
-const savedPlayerStatTotals =
-    savedPlayerStatColumns.map((statKey) => {
-        return team.roster.reduce(
-            (total, player) => {
-                return total + (
-                    game.playerStatsById?.[
-                        player.id
-                    ]?.[statKey] || 0
-                );
-            },
-            0
-        );
-    });
-
-document.getElementById(
-    "summaryPlayerStats"
-).innerHTML = `
-    <div class="boxScoreWrap">
-        <h3>Player Scoring</h3>
-
-        <table class="boxScoreTable">
-            <thead>
-                <tr>
-                    <th>Player</th>
-
-                    ${periodColumns
-                        .map((period) => {
-                            return `
-                                <th>${period}</th>
-                            `;
-                        })
-                        .join("")}
-
-                    <th>Total</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                ${savedPlayerScoringRows}
-                ${renderUnknownScoringRow(game, periodColumns)}
-
-                <tr class="summaryTotalsRow">
-                    <td>Totals</td>
-
-                    ${savedScoringTotals
-                        .map((total) => {
-                            return `
-                                <td>${total}</td>
-                            `;
-                        })
-                        .join("")}
-
-                    <td>${savedGamePointsTotal}</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="boxScoreWrap">
-        <h3>Player Stats</h3>
-
-        <table class="boxScoreTable">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Player</th>
-                    ${savedPlayerHeaderCells}
-                </tr>
-            </thead>
-
-            <tbody>
-                ${savedPlayerRows}
-
-                <tr class="summaryTotalsRow">
-                    <td></td>
-                    <td>Totals</td>
-
-                    ${savedPlayerStatTotals
-                        .map((total) => {
-                            return `
-                                <td>${total}</td>
-                            `;
-                        })
-                        .join("")}
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    ${renderPlayerShootingSection(game, team)}
-`;
 document.getElementById(
     "returnToLiveGameButton"
-).textContent = "Back to Team";
+).textContent = origin === "reports" ? "Back to Reports" : "Back to Team";
 
 document.getElementById(
     "saveCompletedGameButton"
@@ -6611,6 +6467,23 @@ showLineupPlusMinusCard(
 );
     showScreen("gameSummary");
 }
+// Back from a saved game's summary: to Reports (same team and season, still
+// on screen) or to the team, as before.
+function closeSavedGameSummary() {
+    if (savedSummaryOrigin === "reports") {
+        viewingSavedGame = false;
+        savedSummaryOrigin = "team";
+        showScreen("reports");
+        return;
+    }
+
+    const team = getSelectedTeam();
+
+    if (team) {
+        openTeamDetails(team.id);
+    }
+}
+
 function saveCompletedGame() {
     const team = getSelectedTeam();
 
@@ -8410,6 +8283,8 @@ if (!teamId || !selectedSeason) {
     }));
 
     reportsContent.innerHTML = `
+        ${renderReportPastGames(team, selectedSeason, teamGames)}
+
         <div class="reportSection">
             <h3>${teamLabel}</h3>
 
@@ -8672,6 +8547,80 @@ if (!teamId || !selectedSeason) {
         </div>
     </div>
 `;
+
+    // Past Games: open the full saved summary; Back comes back here.
+    reportsContent
+        .querySelectorAll("[data-report-game-id]")
+        .forEach((button) => {
+            button.addEventListener("click", () => {
+                openSavedGameSummary(button.dataset.reportGameId, "reports");
+            });
+        });
+
+    reportsContent
+        .querySelector("[data-report-past-games-toggle]")
+        ?.addEventListener("click", () => {
+            reportPastGamesShowAll.on = !reportPastGamesShowAll.on;
+            renderTeamReport();
+        });
+}
+
+// Reports > Past Games shows the newest five until Show all is tapped (per
+// team and season, while the app is open).
+const reportPastGamesShowAll = { key: "", on: false };
+
+function renderReportPastGames(team, season, teamGames) {
+    const key = `${team.id}|${season}`;
+
+    if (reportPastGamesShowAll.key !== key) {
+        reportPastGamesShowAll.key = key;
+        reportPastGamesShowAll.on = false;
+    }
+
+    // Newest first, like Games.
+    const games = [...teamGames].sort(
+        (a, b) => new Date(b.completedAt) - new Date(a.completedAt)
+    );
+    const shown = reportPastGamesShowAll.on ? games : games.slice(0, 5);
+
+    return `
+        <div class="reportSection reportPastGames">
+            <h3>Past Games</h3>
+
+            <div class="reportPastGamesList">
+                ${shown
+                    .map((game) => {
+                        const result =
+                            game.teamScore > game.opponentScore
+                                ? ["W", "gameResultWin"]
+                                : game.teamScore < game.opponentScore
+                                ? ["L", "gameResultLoss"]
+                                : ["T", "gameResultTie"];
+
+                        return `
+                            <button
+                                type="button"
+                                class="reportPastGame"
+                                data-report-game-id="${escapeSummaryText(game.id)}"
+                            >
+                                <span class="gameResultBadge ${result[1]}">${result[0]}</span>
+                                <span class="reportPastGameOpponent">vs ${escapeSummaryText(game.opponent || "Opponent")}</span>
+                                <span class="reportPastGameMeta">${escapeSummaryText(game.gameDate || "Date not entered")} · ${game.teamScore}-${game.opponentScore}</span>
+                            </button>
+                        `;
+                    })
+                    .join("")}
+            </div>
+
+            ${
+                games.length > 5
+                    ? `<button type="button" class="reportPastGamesMore" data-report-past-games-toggle>${
+                          reportPastGamesShowAll.on ? "Show fewer" : `Show all ${games.length} games`
+                      }</button>`
+                    : ""
+            }
+        </div>
+    `;
 }
 
 function renderPlayerGameReport() {
@@ -9137,8 +9086,22 @@ document
             .getElementById("playerTrackerPanel")
             .classList.remove("activeTrackerPanel");
 
+        summaryPeriodChoice.live = "game";
         renderLiveSummary();
     });
+
+// Team Comparison: Game, or one quarter (shown only; never saved).
+document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-summary-period]");
+
+    if (!button) {
+        return;
+    }
+
+    summaryPeriodChoice[button.dataset.summaryView] =
+        button.dataset.summaryPeriod;
+    summaryRedraw[button.dataset.summaryView]?.();
+});
 
 document
     .getElementById("undoLastActionButton")
@@ -9166,6 +9129,7 @@ document
     .addEventListener("input", () => {
         if (!viewingSavedGame) {
             renderEndOfGameLineups();
+            summaryRedraw.screen?.();
         }
     });
 
@@ -9261,12 +9225,7 @@ document
     .getElementById("returnToLiveGameButton")
     .addEventListener("click", () => {
         if (viewingSavedGame) {
-            const team = getSelectedTeam();
-
-            if (team) {
-                openTeamDetails(team.id);
-            }
-
+            closeSavedGameSummary();
             return;
         }
 
@@ -9325,6 +9284,11 @@ backButton.addEventListener("click", () => {
         (screen) => screen.id
     )
 );
+
+    if (viewingSavedGame && savedSummaryOrigin === "reports") {
+        closeSavedGameSummary();
+        return;
+    }
 
     if (viewingSavedGame) {
         const team = getSelectedTeam();

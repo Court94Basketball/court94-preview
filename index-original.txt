@@ -893,8 +893,17 @@
         Game Summary
     </h3>
 
+    <!-- Built by renderGameSummarySections (script.js), shared with the
+         end-of-game and saved-game summaries. -->
     <section class="formCard">
-        <h3>Team Stats</h3>
+        <div
+            id="liveSummaryScoring"
+            class="liveSummaryTableWrap"
+        ></div>
+    </section>
+
+    <section class="formCard">
+        <h3>Team Comparison</h3>
 
         <div
             id="liveSummaryTeamStats"
@@ -903,7 +912,7 @@
     </section>
 
     <section class="formCard">
-        <h3>Player Stats</h3>
+        <h3>Player Statistics</h3>
 
         <div
             id="liveSummaryPlayerStats"
@@ -1011,20 +1020,31 @@
 
             </section>
 
+            <!-- Built by renderGameSummarySections (script.js), shared with the
+                 live Summary tab. -->
             <section class="formCard">
 
-                <h3>Team Stats</h3>
-
                 <div
-                    id="summaryTeamStats"
-                    class="detailsStatGrid"
+                    id="summaryScoring"
+                    class="liveSummaryTableWrap"
                 ></div>
 
             </section>
 
             <section class="formCard">
 
-                <h3>Player Stats</h3>
+                <h3>Team Comparison</h3>
+
+                <div
+                    id="summaryTeamStats"
+                    class="liveSummaryTableWrap"
+                ></div>
+
+            </section>
+
+            <section class="formCard">
+
+                <h3>Player Statistics</h3>
 
                 <div
                     id="summaryPlayerStats"
