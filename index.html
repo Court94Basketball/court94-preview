@@ -1020,6 +1020,25 @@
 
             </section>
 
+            <!-- Saved games only: correct the game type (script.js
+                 renderSummaryGameType). Scrimmages and practices stay saved
+                 but aren't counted in season stats. -->
+            <section id="summaryGameTypeCard" class="formCard" hidden>
+
+                <h3>Game Type</h3>
+
+                <label class="formField">
+                    Game type
+                    <select id="summaryGameType"></select>
+                </label>
+
+                <p class="summaryNote">
+                    Scrimmages and practices stay saved and in Past Games, but
+                    aren't counted in season records, averages or season stats.
+                </p>
+
+            </section>
+
             <!-- Built by renderGameSummarySections (script.js), shared with the
                  live Summary tab. -->
             <section class="formCard">

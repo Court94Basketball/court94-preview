@@ -4499,8 +4499,11 @@ p.betaNoticeText {
 }
 
 /* ---------- REPORTS: PAST GAMES ---------- */
+/* One column no wider than the screen: a long opponent name shortens
+   instead of widening every row. */
 .reportPastGamesList {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
 }
 
@@ -4528,8 +4531,14 @@ p.betaNoticeText {
     text-overflow: ellipsis;
 }
 
+/* On a narrow phone the date and score move to their own line. */
+.reportPastGame {
+    flex-wrap: wrap;
+}
+
 .reportPastGameMeta {
     flex: 0 0 auto;
+    margin-left: auto;
     color: var(--muted);
     font-size: 14px;
     font-weight: 700;
@@ -4544,4 +4553,51 @@ p.betaNoticeText {
     background: white;
     color: var(--navy);
     font-weight: 900;
+}
+
+/* ---------- GAME TYPES: SCRIMMAGES AND PRACTICES ----------
+   Labelled in game lists; left out of season figures (script.js
+   isOfficialGame). */
+.gameTypeBadge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 8px;
+    border: 1px solid var(--muted);
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.reportRecordSplit {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.reportOfficialNote {
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* A full-size picker; 16px text so Safari on iPad doesn't zoom in. */
+#summaryGameType {
+    width: 100%;
+    max-width: 320px;
+    min-height: 48px;
+    padding: 0 12px;
+    border: 2px solid var(--navy);
+    border-radius: 10px;
+    background: white;
+    color: var(--navy-dark);
+    font-size: 16px;
+    font-weight: 800;
 }

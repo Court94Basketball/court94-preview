@@ -335,6 +335,66 @@ function readSavedGamesIfReadable() {
     }
 }
 
+// ---------- Game types ----------
+// Scrimmages and practices are saved and shown like any game, but left out
+// of official season figures (records, averages, season stats, trends).
+// A game saved without a type counts as Regular Season.
+const gameTypes = ["Regular Season", "Tournament", "Playoff", "Scrimmage", "Practice"];
+const unofficialGameTypes = ["Scrimmage", "Practice"];
+
+function getGameType(game) {
+    return game?.gameType || "Regular Season";
+}
+
+function isOfficialGame(game) {
+    return !unofficialGameTypes.includes(getGameType(game));
+}
+
+// The "Scrimmage" / "Practice" label in game lists (none for official games).
+function renderGameTypeBadge(game) {
+    return isOfficialGame(game)
+        ? ""
+        : `<span class="gameTypeBadge">${escapeSummaryText(getGameType(game))}</span>`;
+}
+
+// Corrects a saved game's type. Only that one field changes. The games list
+// is written and read back (the old list is put back if that fails), then
+// copied by the game-save safety copy like any other save.
+function saveSavedGameType(gameId, gameType) {
+    const storedGames = readSavedGamesIfReadable();
+    let previousText = null;
+
+    if (!storedGames) {
+        return false;
+    }
+
+    try {
+        previousText = localStorage.getItem(GAMES_STORAGE_KEY);
+    } catch (error) {
+        return false;
+    }
+
+    if (!storedGames.some((game) => String(game.id) === String(gameId))) {
+        return false;
+    }
+
+    const updatedGames = storedGames.map((game) =>
+        String(game.id) === String(gameId) ? { ...game, gameType } : game
+    );
+
+    if (!writeStorageVerified(GAMES_STORAGE_KEY, JSON.stringify(updatedGames))) {
+        if (previousText !== null) {
+            writeStorageVerified(GAMES_STORAGE_KEY, previousText);
+        }
+
+        return false;
+    }
+
+    savedGames = updatedGames;
+    copyGameSaveIfLoaded();
+    return true;
+}
+
 function loadTeams() {
     try {
         const savedTeams = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -6174,6 +6234,7 @@ function openGameSummary() {
         return total + (playerStats.points || 0);
     }, 0) + getUnknownShooterPoints();
     viewingSavedGame = false;
+    renderSummaryGameType(null);
 
     document.getElementById("summaryMatchup").textContent =
         `${team.teamName} vs ${liveGameState.opponent}`;
@@ -6426,6 +6487,7 @@ function openSavedGameSummary(gameId, origin = "team") {
     }
     viewingSavedGame = true;
     savedSummaryOrigin = origin;
+    renderSummaryGameType(game);
     document.getElementById("summaryScoreNote").hidden = true;
 
     document.getElementById("summaryMatchup").textContent =
@@ -6467,6 +6529,69 @@ showLineupPlusMinusCard(
 );
     showScreen("gameSummary");
 }
+// Game Type on a saved game's summary (hidden for a game being finished).
+function renderSummaryGameType(game) {
+    const card = document.getElementById("summaryGameTypeCard");
+    const select = document.getElementById("summaryGameType");
+
+    card.hidden = !game;
+
+    if (!game) {
+        return;
+    }
+
+    const current = getGameType(game);
+    const choices = gameTypes.includes(current)
+        ? gameTypes
+        : [...gameTypes, current];
+
+    select.innerHTML = choices
+        .map(
+            (type) =>
+                `<option value="${escapeSummaryText(type)}"${type === current ? " selected" : ""}>${escapeSummaryText(type)}</option>`
+        )
+        .join("");
+    select.dataset.gameId = game.id;
+    select.dataset.currentType = current;
+}
+
+// A new type is saved only after the coach confirms; only the type changes,
+// and season Reports are worked out again straight away.
+function changeSummaryGameType() {
+    const select = document.getElementById("summaryGameType");
+    const from = select.dataset.currentType;
+    const to = select.value;
+
+    if (to === from) {
+        return;
+    }
+
+    const confirmed = confirm(
+        `Change this game from ${from} to ${to}?\n\n` +
+        (unofficialGameTypes.includes(to)
+            ? "Scrimmages and practices stay saved and in Past Games, but aren't counted in season records, averages or season stats."
+            : "It will be counted in season records, averages and season stats.") +
+        "\n\nOnly the game type changes. Every stat in this game stays exactly as saved."
+    );
+
+    if (!confirmed) {
+        select.value = from;
+        return;
+    }
+
+    if (!saveSavedGameType(select.dataset.gameId, to)) {
+        select.value = from;
+        alert(
+            "Court94 couldn't save the new game type, so nothing was changed.\n\n" +
+            "Please try again."
+        );
+        return;
+    }
+
+    select.dataset.currentType = to;
+    renderTeamReport();
+}
+
 // Back from a saved game's summary: to Reports (same team and season, still
 // on screen) or to the team, as before.
 function closeSavedGameSummary() {
@@ -7568,7 +7693,7 @@ if (teamGames.length === 0) {
                                 ${resultLetter}
                             </span>
 
-                            vs ${game.opponent}
+                            vs ${game.opponent} ${renderGameTypeBadge(game)}
                         </h4>
 
                         <p>
@@ -7937,7 +8062,7 @@ if (!selectedFilterTeamId) {
                                 </span>
 
                                 ${teamLabel || "Team"}
-                                vs ${game.opponent}
+                                vs ${game.opponent} ${renderGameTypeBadge(game)}
                             </h4>
 
                             <p>
@@ -8179,7 +8304,9 @@ if (!teamId || !selectedSeason) {
             (item) => item.id === teamId
         );
 
-    const teamGames =
+    // Every game of this team and season (Past Games), and the official ones
+    // the season figures use (no scrimmages or practices).
+    const seasonGames =
     savedGames.filter((game) => {
         if (game.teamId !== teamId) {
             return false;
@@ -8189,13 +8316,15 @@ if (!teamId || !selectedSeason) {
             game.season || team.season;
 
         return gameSeason === selectedSeason;
-    }); 
+    });
+
+    const teamGames = seasonGames.filter(isOfficialGame);
 
     if (!team) {
         return;
     }
 
-    if (teamGames.length === 0) {
+    if (seasonGames.length === 0) {
         reportsContent.innerHTML = `
             <div class="emptyState">
                 <h3>No completed games yet</h3>
@@ -8205,6 +8334,20 @@ if (!teamId || !selectedSeason) {
             </div>
         `;
 
+        return;
+    }
+
+    if (teamGames.length === 0) {
+        reportsContent.innerHTML = `
+            ${renderReportPastGames(team, selectedSeason, seasonGames)}
+
+            <div class="emptyState">
+                <h3>No official games yet</h3>
+                <p>${renderUnofficialGamesNote(seasonGames)}</p>
+            </div>
+        `;
+
+        wireReportPastGames(reportsContent);
         return;
     }
 
@@ -8283,7 +8426,7 @@ if (!teamId || !selectedSeason) {
     }));
 
     reportsContent.innerHTML = `
-        ${renderReportPastGames(team, selectedSeason, teamGames)}
+        ${renderReportPastGames(team, selectedSeason, seasonGames)}
 
         <div class="reportSection">
             <h3>${teamLabel}</h3>
@@ -8311,6 +8454,8 @@ if (!teamId || !selectedSeason) {
                                 : ""
                         }
                     </strong>
+
+                    ${renderRecordSplit(teamGames)}
                 </div>
 
                 <div class="reportStatCard">
@@ -8333,6 +8478,12 @@ if (!teamId || !selectedSeason) {
                     </strong>
                                 </div>
             </div>
+
+            ${
+                seasonGames.length > teamGames.length
+                    ? `<p class="reportOfficialNote">Official games only (Regular Season, Tournament and Playoff). ${renderUnofficialGamesNote(seasonGames)}</p>`
+                    : ""
+            }
 
             <div class="reportTeamAverages">
                 <h4>Team Averages</h4>
@@ -8548,7 +8699,11 @@ if (!teamId || !selectedSeason) {
     </div>
 `;
 
-    // Past Games: open the full saved summary; Back comes back here.
+    wireReportPastGames(reportsContent);
+}
+
+// Past Games: open the full saved summary; Back comes back here.
+function wireReportPastGames(reportsContent) {
     reportsContent
         .querySelectorAll("[data-report-game-id]")
         .forEach((button) => {
@@ -8563,6 +8718,41 @@ if (!teamId || !selectedSeason) {
             reportPastGamesShowAll.on = !reportPastGamesShowAll.on;
             renderTeamReport();
         });
+}
+
+// "Regular Season 8-3" and "Tournament/Playoff 2-1" under the official record.
+function renderRecordSplit(officialGames) {
+    const record = (games) => {
+        const wins = games.filter((game) => game.teamScore > game.opponentScore).length;
+        const losses = games.filter((game) => game.teamScore < game.opponentScore).length;
+        const ties = games.length - wins - losses;
+
+        return `${wins}-${losses}${ties > 0 ? `-${ties}` : ""}`;
+    };
+    const regular = officialGames.filter((game) => getGameType(game) === "Regular Season");
+    const postseason = officialGames.filter((game) => getGameType(game) !== "Regular Season");
+
+    return `
+        <small class="reportRecordSplit">Regular Season ${record(regular)}</small>
+        <small class="reportRecordSplit">Tournament/<wbr>Playoff ${record(postseason)}</small>
+    `;
+}
+
+// How many scrimmages and practices the season figures leave out.
+function renderUnofficialGamesNote(seasonGames) {
+    const count = (type) => seasonGames.filter((game) => getGameType(game) === type).length;
+    const parts = [
+        [count("Scrimmage"), "scrimmage"],
+        [count("Practice"), "practice"]
+    ]
+        .filter(([number]) => number > 0)
+        .map(([number, word]) => `${number} ${word}${number === 1 ? "" : "s"}`);
+    const total = count("Scrimmage") + count("Practice");
+
+    return parts.length
+        ? `${parts.join(" and ")} ${total === 1 ? "isn't" : "aren't"} included in season stats, records or averages. ` +
+              "They're still saved and listed in Past Games."
+        : "";
 }
 
 // Reports > Past Games shows the newest five until Show all is tapped (per
@@ -8604,7 +8794,7 @@ function renderReportPastGames(team, season, teamGames) {
                                 data-report-game-id="${escapeSummaryText(game.id)}"
                             >
                                 <span class="gameResultBadge ${result[1]}">${result[0]}</span>
-                                <span class="reportPastGameOpponent">vs ${escapeSummaryText(game.opponent || "Opponent")}</span>
+                                <span class="reportPastGameOpponent">vs ${escapeSummaryText(game.opponent || "Opponent")}</span>${renderGameTypeBadge(game)}
                                 <span class="reportPastGameMeta">${escapeSummaryText(game.gameDate || "Date not entered")} · ${game.teamScore}-${game.opponentScore}</span>
                             </button>
                         `;
@@ -8687,6 +8877,7 @@ const teamId =
 
             return (
                 gameSeason === selectedSeason &&
+                isOfficialGame(game) &&
                 game.playerStatsById?.[playerId]
             );
         });
@@ -9122,6 +9313,10 @@ document
 document
     .getElementById("opponentUndoButton")
     .addEventListener("click", undoOpponentPoints);
+
+document
+    .getElementById("summaryGameType")
+    .addEventListener("change", changeSummaryGameType);
 
 // The end-of-game score check updates as the opponent's score is typed.
 document
