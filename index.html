@@ -1309,6 +1309,38 @@
 
                 <dl id="offlineInfo" class="storageInfo"></dl>
             </section>
+
+            <!-- Optional anonymous usage counts (usage.js). Off unless the coach turns it on. -->
+            <section class="formCard storageCard usageCard">
+                <h3>Anonymous Usage Counts</h3>
+
+                <p class="formNote">
+                    Help improve Court94 by letting it count how often the app
+                    is opened, games are started and games are saved. Only those
+                    three counts are sent. Never your name, teams, players,
+                    opponents, scores or statistics, and nothing that identifies
+                    you or this device.
+                </p>
+
+                <p class="formNote">
+                    It's off unless you turn it on, and it never affects
+                    tracking or saving. Counts made without internet are sent
+                    later. The counting service (GoatCounter) sees this
+                    device's internet connection, as any website does.
+                    Turning it off removes any counts not yet sent.
+                </p>
+
+                <label class="usageSwitch" for="usageCountsToggle">
+                    <input id="usageCountsToggle" type="checkbox">
+                    <span>Share anonymous usage counts</span>
+                </label>
+
+                <p
+                    id="usageCountsStatus"
+                    class="backupStatus"
+                    role="status"
+                ></p>
+            </section>
         </section>
 
     </main>
@@ -1318,6 +1350,7 @@
     <script src="storage.js"></script>
     <script src="safetycopy.js"></script>
     <script src="offline.js"></script>
+    <script src="usage.js"></script>
 
 </body>
 </html>

@@ -4289,6 +4289,25 @@ p.betaNoticeText {
     margin-top: 0;
 }
 
+/* Anonymous Usage Counts (usage.js): one large, easy-to-tap switch. */
+.usageSwitch {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 52px;
+    margin-top: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.usageSwitch input {
+    width: 28px;
+    height: 28px;
+    margin: 0;
+    flex: 0 0 auto;
+    accent-color: var(--navy);
+}
+
 .storageInfo {
     display: grid;
     grid-template-columns: minmax(150px, 230px) 1fr;

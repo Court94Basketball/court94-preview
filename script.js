@@ -1518,6 +1518,15 @@ team.roster.forEach((player) => {
     saveLiveGameState();
 
     showScreen("liveGame");
+
+    // Anonymous usage count, only if the coach turned it on (usage.js).
+    try {
+        if (typeof recordUsage === "function") {
+            recordUsage("game-started");
+        }
+    } catch (error) {
+        // Never affects the game.
+    }
 }
 
 // Shows the TRACK tab (player and team buttons) on the live game screen.
@@ -6778,6 +6787,17 @@ participationTracked:
 
     savedGames = updatedGames;
     finishSavedGame(team);
+
+    // Anonymous usage count of a confirmed new save, only if the coach
+    // turned it on (usage.js). The game's ID stays on this device so the
+    // same game is never counted twice; it is never sent.
+    try {
+        if (typeof recordUsage === "function") {
+            recordUsage("game-saved", gameId);
+        }
+    } catch (error) {
+        // Never affects the saved game.
+    }
 }
 
 // After a confirmed save: clear the game in progress (in memory and its
